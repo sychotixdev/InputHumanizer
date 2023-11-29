@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <UseWindowsForms>true</UseWindowsForms>
+    <LangVersion>latest</LangVersion>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <OutputType>Library</OutputType>
+    <OutputPath>..\..\..\..\..\PoEHelper\Plugins\Compiled\InputHumanizer\</OutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="ExileCore">
+      <HintPath>..\..\..\..\..\PoeHelper\ExileCore.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Kalon">
+      <HintPath>..\..\..\..\..\..\Kalon\Kalon\bin\Release\net8.0\Kalon.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="LinqFaster" Version="1.0.0" />
+    <PackageReference Include="Serilog" Version="2.8.0" />
+    <PackageReference Include="Vanara.PInvoke.User32" Version="3.4.11" />
+  </ItemGroup>
+
+</Project>
