@@ -7,11 +7,10 @@
     <LangVersion>latest</LangVersion>
     <TargetFramework>net8.0-windows</TargetFramework>
     <OutputType>Library</OutputType>
-    <OutputPath>..\..\..\..\..\PoEHelper\Plugins\Compiled\InputHumanizer\</OutputPath>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="ExileCore">
-      <HintPath>..\..\..\..\..\PoeHelper\ExileCore.dll</HintPath>
+      <HintPath>$(exapiPackage)\ExileCore.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Kalon">
