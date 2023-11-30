@@ -17,10 +17,5 @@
       <HintPath>..\..\..\..\..\..\Kalon\Kalon\bin\Release\net8.0\Kalon.dll</HintPath>
     </Reference>
   </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="LinqFaster" Version="1.0.0" />
-    <PackageReference Include="Serilog" Version="2.8.0" />
-    <PackageReference Include="Vanara.PInvoke.User32" Version="3.4.11" />
-  </ItemGroup>
 
 </Project>

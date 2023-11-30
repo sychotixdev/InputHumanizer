@@ -1,30 +1,28 @@
 ﻿using ExileCore.Shared;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using static InputHumanizer.InputHumanizer;
 
 namespace InputHumanizer.Input
 {
-    internal class InputLockManager
+    public class InputLockManager
     {
-        private static InputLockManager _instance = new InputLockManager();
-        public static InputLockManager Instance { get { return _instance; }  private set { } }
+        public static InputLockManager Instance { get; } = new InputLockManager();
 
-        public String PluginWithSemaphore { get; private set; }
+        public string PluginWithSemaphore { get; private set; } = "None";
 
+        private SemaphoreSlim Semaphore { get; set; } = new(1);
 
-        private SemaphoreSlim Semaphore { get; set; }
+        private InputLockManager() { }
 
-        private InputLockManager() {
-            Semaphore = new SemaphoreSlim(1);
-            PluginWithSemaphore = "None";
+        public async SyncTask<IInputController> GetController(string requestingPlugin, InputHumanizerSettings settings, CancellationToken cancellationToken = default)
+        {
+            await Semaphore.WaitAsync(cancellationToken);
+            PluginWithSemaphore = requestingPlugin;
+            return new InputController(settings, this);
         }
 
-        public async SyncTask<IInputController> GetController(String requestingPlugin, InputHumanizerSettings settings, TimeSpan waitPeriod)
+        public async SyncTask<IInputController> GetController(string requestingPlugin, InputHumanizerSettings settings, TimeSpan waitPeriod)
         {
             if (await Semaphore.WaitAsync(waitPeriod))
             {
@@ -36,7 +34,20 @@ namespace InputHumanizer.Input
             return null;
         }
 
-        public void ReleaseController()
+        public bool TryGetController(string requestingPlugin, InputHumanizerSettings settings, out IInputController controller)
+        {
+            if (Semaphore.Wait(TimeSpan.Zero))
+            {
+                PluginWithSemaphore = requestingPlugin;
+                controller = new InputController(settings, this);
+                return true;
+            }
+
+            controller = null;
+            return false;
+        }
+
+        internal void ReleaseController()
         {
             PluginWithSemaphore = "None";
             Semaphore.Release();

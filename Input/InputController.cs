@@ -1,10 +1,10 @@
 ﻿using ExileCore.Shared;
 using System;
-using System.Collections;
 using System.Collections.Generic;
+using System.Numerics;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using Vanara.PInvoke;
 using static InputHumanizer.InputHumanizer;
 
 namespace InputHumanizer.Input
@@ -13,15 +13,21 @@ namespace InputHumanizer.Input
     {
         internal InputController(InputHumanizerSettings settings, InputLockManager manager)
         {
-            this.Settings = settings;
-            this.Manager = manager;
+            Settings = settings;
+            Manager = manager;
         }
 
         ~InputController()
         {
             Manager.ReleaseController();
         }
-        
+
+        public void Dispose()
+        {
+            GC.SuppressFinalize(this);
+            Manager.ReleaseController();
+        }
+
         private InputHumanizerSettings Settings { get; }
         private InputLockManager Manager { get; }
         private Dictionary<Keys, DateTime> ButtonDelays = new Dictionary<Keys, DateTime>();
@@ -35,7 +41,7 @@ namespace InputHumanizer.Input
             return true;
         }
 
-        public async SyncTask<bool> KeyUp(Keys key, bool releaseImmediately = false)
+        public async SyncTask<bool> KeyUp(Keys key, bool releaseImmediately = false, CancellationToken cancellationToken = default)
         {// If we were told to release immediately, skip this logic
             if (!releaseImmediately)
             {
@@ -49,7 +55,7 @@ namespace InputHumanizer.Input
                 if (now < releaseTime)
                 {
                     TimeSpan remainingDelay = now.Subtract(releaseTime);
-                    await Task.Delay(remainingDelay);
+                    await Task.Delay(remainingDelay, cancellationToken);
                 }
             }
 
@@ -61,41 +67,50 @@ namespace InputHumanizer.Input
             return true;
         }
 
-        public async SyncTask<bool> Click(string requestingPlugin, int x = 0, int y = 0)
+        public async SyncTask<bool> Click(CancellationToken cancellationToken)
+        {
+            return await Click(null, cancellationToken);
+        }
+
+        public async SyncTask<bool> Click(Vector2 coordinate, CancellationToken cancellationToken)
+        {
+            return await Click((Vector2?)coordinate, cancellationToken);
+        }
+
+        private async SyncTask<bool> Click(Vector2? coordinate, CancellationToken cancellationToken)
         {
             // Only if a position is specified do we move the mouse
-            if (x != 0 && y != 0)
+            if (coordinate != null)
             {
-                if (!await MoveMouse(x, y))
+                if (!await MoveMouse(coordinate.Value, cancellationToken))
                     return false;
             }
 
             // We will also have a delay on the click, not just the move.
-            await Task.Delay(GenerateDelay());
+            await Task.Delay(GenerateDelay(), cancellationToken);
 
             // Delays should now be handled just fine
-            User32.mouse_event(User32.MOUSEEVENTF.MOUSEEVENTF_LEFTDOWN | User32.MOUSEEVENTF.MOUSEEVENTF_LEFTUP, 0, 0, 0, (IntPtr)0);
+            ExileCore.Input.Click(MouseButtons.Left);
 
             // Do we want to sleep TWICE here?
-            await Task.Delay(GenerateDelay());
+            await Task.Delay(GenerateDelay(), cancellationToken);
 
             return true;
         }
 
-        public async SyncTask<bool> MoveMouse(int x, int y)
+        public async SyncTask<bool> MoveMouse(Vector2 coordinate, CancellationToken cancellationToken)
         {
-            return await MoveMouse(x, y, Settings.MaximumInterpolationDistance, Settings.MinimumInterpolationDelay, Settings.MaximumInterpolationDelay);
+            return await MoveMouse(coordinate, Settings.MaximumInterpolationDistance, Settings.MinimumInterpolationDelay, Settings.MaximumInterpolationDelay, cancellationToken);
         }
 
-        public async SyncTask<bool> MoveMouse(int x, int y, int maxInterpolationDistance, int minInterpolationDelay, int maxInterpolationDelay)
+        public async SyncTask<bool> MoveMouse(Vector2 coordinate, int maxInterpolationDistance, int minInterpolationDelay, int maxInterpolationDelay, CancellationToken cancellationToken)
         {
-            return await Mouse.MoveMouse(new System.Numerics.Vector2(x, y), maxInterpolationDistance, minInterpolationDelay, maxInterpolationDelay);
+            return await Mouse.MoveMouse(coordinate, maxInterpolationDistance, minInterpolationDelay, maxInterpolationDelay, cancellationToken);
         }
 
-        public int GenerateDelay()
+        private int GenerateDelay()
         {
             return Delay.GetDelay(Settings.MinimumDelay, Settings.MaximumDelay, Settings.DelayMean, Settings.DelayStandardDeviation);
         }
-
     }
 }

@@ -5,52 +5,31 @@ using ExileCore.Shared.Interfaces;
 using ExileCore.Shared.Nodes;
 using InputHumanizer.Input;
 using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Windows.Forms;
-using Vanara.PInvoke;
 using static InputHumanizer.InputHumanizer;
 
 namespace InputHumanizer
 {
     public class InputHumanizer : BaseSettingsPlugin<InputHumanizerSettings>
     {
-        public override bool Initialise()
-        {
-            Name = "InputHumanizer";
-            return true;
-        }
-
-        public override void AreaChange(AreaInstance area)
-        {
-
-        }
-
-        public override void Render()
-        {
-            base.Render();
-        }
-
         public async SyncTask<IInputController> GetInputController(string requestingPlugin, TimeSpan waitTime)
         {
-
             IInputController controller = await InputLockManager.Instance.GetController(requestingPlugin, Settings, waitTime);
             if (controller == null)
             {
-                LogError("InputHumanizer - Plugin " + requestingPlugin + " requested input controller but " + InputLockManager.Instance.PluginWithSemaphore + " is still holding it. Try your action again later.");
+                LogError($"InputHumanizer - Plugin {requestingPlugin} requested input controller but {InputLockManager.Instance.PluginWithSemaphore} is still holding it. Try your action again later.");
                 return null;
             }
 
             return controller;
         }
 
+        public bool TryGetInputController(string requestingPlugin, out IInputController controller)
+        {
+            return InputLockManager.Instance.TryGetController(requestingPlugin, Settings, out controller);
+        }
+
         public class InputHumanizerSettings : ISettings
         {
-            public InputHumanizerSettings()
-            {
-                
-            }
-
             [Menu("Minimum Interpolation Delay", "Minimum Delay in Milliseconds")]
             public RangeNode<int> MinimumInterpolationDelay { get; set; } = new(0, 0, 1000);
 
