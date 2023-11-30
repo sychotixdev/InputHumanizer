@@ -31,7 +31,7 @@ namespace InputHumanizer.Input
 
             TimeSpan mouseSpeed = TimeSpan.FromMilliseconds(interpolatedValue + Random.Shared.Next(25, 100));
 
-            var movements = CursorMover.GenerateMovements(new Point(currentPosition.X, currentPosition.Y), new Point((int)targetPosition.X, (int)targetPosition.Y), (int)mouseSpeed.TotalMilliseconds);
+            var movements = CursorMover.GenerateMovements(new Point((int)currentPosition.X, (int)currentPosition.Y), new Point((int)targetPosition.X, (int)targetPosition.Y), (int)mouseSpeed.TotalMilliseconds);
 
             foreach( var movement in movements)
             {

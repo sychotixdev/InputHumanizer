@@ -9,12 +9,14 @@
     <OutputType>Library</OutputType>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="SharpDX.Mathematics" Version="4.2.0" />
+  </ItemGroup>
+  <ItemGroup>
     <Reference Include="ExileCore">
       <HintPath>$(exapiPackage)\ExileCore.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Kalon">
-      <HintPath>..\..\..\..\..\..\Kalon\Kalon\bin\Release\net8.0\Kalon.dll</HintPath>
     </Reference>
   </ItemGroup>
 
