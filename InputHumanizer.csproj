@@ -12,6 +12,15 @@
     <PackageReference Include="SharpDX.Mathematics" Version="4.2.0" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\InputHumanizerLib\InputHumanizerLib.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(SolutionName)' == 'ExileApi'">
+    <ProjectReference Include="..\..\GameOffsets\GameOffsets.csproj" />
+    <ProjectReference Include="..\Core\Core.csproj" />
+    <Reference Include="Kalon">
+    </Reference>
+  </ItemGroup>
+  <ItemGroup Condition="'$(SolutionName)' != 'ExileApi'">
     <Reference Include="ExileCore">
       <HintPath>$(exapiPackage)\ExileCore.dll</HintPath>
       <Private>False</Private>

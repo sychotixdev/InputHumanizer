@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.8.34316.72
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "InputHumanizer", "InputHumanizer.csproj", "{90409194-722D-4186-A67B-17734053D5F1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InputHumanizerLib", "..\InputHumanizerLib\InputHumanizerLib.csproj", "{DA52ECFF-2DD4-48BB-943B-BF43BAACC91C}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{90409194-722D-4186-A67B-17734053D5F1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{90409194-722D-4186-A67B-17734053D5F1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{90409194-722D-4186-A67B-17734053D5F1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{90409194-722D-4186-A67B-17734053D5F1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DA52ECFF-2DD4-48BB-943B-BF43BAACC91C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DA52ECFF-2DD4-48BB-943B-BF43BAACC91C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DA52ECFF-2DD4-48BB-943B-BF43BAACC91C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DA52ECFF-2DD4-48BB-943B-BF43BAACC91C}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {11CAF4DC-6BD0-4AC3-8D87-0D6C809DE050}
+	EndGlobalSection
+EndGlobal

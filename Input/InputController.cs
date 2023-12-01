@@ -108,7 +108,7 @@ namespace InputHumanizer.Input
             return await Mouse.MoveMouse(coordinate, maxInterpolationDistance, minInterpolationDelay, maxInterpolationDelay, cancellationToken);
         }
 
-        private int GenerateDelay()
+        public int GenerateDelay()
         {
             return Delay.GetDelay(Settings.MinimumDelay, Settings.MaximumDelay, Settings.DelayMean, Settings.DelayStandardDeviation);
         }

@@ -15,14 +15,14 @@ namespace InputHumanizer.Input
 
         private InputLockManager() { }
 
-        public async SyncTask<IInputController> GetController(string requestingPlugin, InputHumanizerSettings settings, CancellationToken cancellationToken = default)
+        public async SyncTask<IInputController> GetInputControllerLock(string requestingPlugin, InputHumanizerSettings settings, CancellationToken cancellationToken = default)
         {
             await Semaphore.WaitAsync(cancellationToken);
             PluginWithSemaphore = requestingPlugin;
             return new InputController(settings, this);
         }
 
-        public async SyncTask<IInputController> GetController(string requestingPlugin, InputHumanizerSettings settings, TimeSpan waitPeriod)
+        public async SyncTask<IInputController> GetInputControllerLock(string requestingPlugin, InputHumanizerSettings settings, TimeSpan waitPeriod)
         {
             if (await Semaphore.WaitAsync(waitPeriod))
             {
@@ -30,24 +30,21 @@ namespace InputHumanizer.Input
                 return new InputController(settings, this);
             }
 
-            // Unable to get controller in specified time
             return null;
         }
 
-        public bool TryGetController(string requestingPlugin, InputHumanizerSettings settings, out IInputController controller)
+        public bool TryGetController(string requestingPlugin)
         {
             if (Semaphore.Wait(TimeSpan.Zero))
             {
                 PluginWithSemaphore = requestingPlugin;
-                controller = new InputController(settings, this);
                 return true;
             }
 
-            controller = null;
             return false;
         }
 
-        internal void ReleaseController()
+        public void ReleaseController()
         {
             PluginWithSemaphore = "None";
             Semaphore.Release();

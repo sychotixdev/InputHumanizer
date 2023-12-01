@@ -1,4 +1,5 @@
 ﻿using ExileCore;
+using ExileCore.PoEMemory.MemoryObjects;
 using ExileCore.Shared;
 using ExileCore.Shared.Attributes;
 using ExileCore.Shared.Interfaces;
@@ -11,13 +12,27 @@ namespace InputHumanizer
 {
     public class InputHumanizer : BaseSettingsPlugin<InputHumanizerSettings>
     {
+        public override bool Initialise()
+        {
+            GameController.PluginBridge.SaveMethod("InputHumanizer.TryGetInputController", (string requestingPlugin, out IInputController controller) =>
+            {
+                return TryGetInputController(requestingPlugin, out controller);
+            });
+
+            GameController.PluginBridge.SaveMethod("InputHumanizer.GetInputController", (string requestingPlugin, TimeSpan waitTime) =>
+            {
+                return GetInputController(requestingPlugin, waitTime);
+            });
+
+            return true;
+        }
+
         public async SyncTask<IInputController> GetInputController(string requestingPlugin, TimeSpan waitTime)
         {
-            IInputController controller = await InputLockManager.Instance.GetController(requestingPlugin, Settings, waitTime);
+            IInputController controller = await InputLockManager.Instance.GetInputControllerLock(requestingPlugin, Settings, waitTime);
             if (controller == null)
             {
                 LogError($"InputHumanizer - Plugin {requestingPlugin} requested input controller but {InputLockManager.Instance.PluginWithSemaphore} is still holding it. Try your action again later.");
-                return null;
             }
 
             return controller;
@@ -25,7 +40,17 @@ namespace InputHumanizer
 
         public bool TryGetInputController(string requestingPlugin, out IInputController controller)
         {
-            return InputLockManager.Instance.TryGetController(requestingPlugin, Settings, out controller);
+            bool gotLock = InputLockManager.Instance.TryGetController(requestingPlugin);
+            if (gotLock)
+            {
+                controller = new InputController(Settings, InputLockManager.Instance);
+            }
+            else
+            {
+                controller = null;
+            }
+
+            return gotLock;
         }
 
         public class InputHumanizerSettings : ISettings
