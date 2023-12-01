@@ -67,17 +67,22 @@ namespace InputHumanizer.Input
             return true;
         }
 
-        public async SyncTask<bool> Click(CancellationToken cancellationToken)
+        public async SyncTask<bool> Click(CancellationToken cancellationToken = default)
         {
-            return await Click(null, cancellationToken);
+            return await Click(MouseButtons.Left, null, cancellationToken);
         }
 
-        public async SyncTask<bool> Click(Vector2 coordinate, CancellationToken cancellationToken)
+        public async SyncTask<bool> Click(MouseButtons button, CancellationToken cancellationToken = default)
         {
-            return await Click((Vector2?)coordinate, cancellationToken);
+            return await Click(button, null, cancellationToken);
         }
 
-        private async SyncTask<bool> Click(Vector2? coordinate, CancellationToken cancellationToken)
+        public async SyncTask<bool> Click(MouseButtons button, Vector2 coordinate, CancellationToken cancellationToken = default)
+        {
+            return await Click(button, (Vector2?)coordinate, cancellationToken);
+        }
+
+        private async SyncTask<bool> Click(MouseButtons button, Vector2? coordinate, CancellationToken cancellationToken = default)
         {
             // Only if a position is specified do we move the mouse
             if (coordinate != null)
@@ -90,7 +95,7 @@ namespace InputHumanizer.Input
             await Task.Delay(GenerateDelay(), cancellationToken);
 
             // Delays should now be handled just fine
-            ExileCore.Input.Click(MouseButtons.Left);
+            ExileCore.Input.Click(button);
 
             // Do we want to sleep TWICE here?
             await Task.Delay(GenerateDelay(), cancellationToken);
@@ -98,12 +103,38 @@ namespace InputHumanizer.Input
             return true;
         }
 
-        public async SyncTask<bool> MoveMouse(Vector2 coordinate, CancellationToken cancellationToken)
+        public async SyncTask<bool> VerticalScroll(bool forward, int numClicks, CancellationToken cancellationToken = default)
+        {
+            return await VerticalScroll(forward, numClicks, null, cancellationToken);
+        }
+
+        public async SyncTask<bool> VerticalScroll(bool forward, int numClicks, Vector2? coordinate, CancellationToken cancellationToken = default)
+        {
+            // Only if a position is specified do we move the mouse
+            if (coordinate != null)
+            {
+                if (!await MoveMouse(coordinate.Value, cancellationToken))
+                    return false;
+            }
+
+            // We will also have a delay on the click, not just the move.
+            await Task.Delay(GenerateDelay(), cancellationToken);
+
+            // Delays should now be handled just fine
+            ExileCore.Input.VerticalScroll(forward, numClicks);
+
+            // Do we want to sleep TWICE here?
+            await Task.Delay(GenerateDelay(), cancellationToken);
+
+            return true;
+        }
+
+        public async SyncTask<bool> MoveMouse(Vector2 coordinate, CancellationToken cancellationToken = default)
         {
             return await MoveMouse(coordinate, Settings.MaximumInterpolationDistance, Settings.MinimumInterpolationDelay, Settings.MaximumInterpolationDelay, cancellationToken);
         }
 
-        public async SyncTask<bool> MoveMouse(Vector2 coordinate, int maxInterpolationDistance, int minInterpolationDelay, int maxInterpolationDelay, CancellationToken cancellationToken)
+        public async SyncTask<bool> MoveMouse(Vector2 coordinate, int maxInterpolationDistance, int minInterpolationDelay, int maxInterpolationDelay, CancellationToken cancellationToken = default)
         {
             return await Mouse.MoveMouse(coordinate, maxInterpolationDistance, minInterpolationDelay, maxInterpolationDelay, cancellationToken);
         }
