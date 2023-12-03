@@ -1,4 +1,5 @@
 ﻿using ExileCore.Shared;
+using ExileCore.Shared.Interfaces;
 using System;
 using System.Threading;
 using static InputHumanizer.InputHumanizer;
@@ -15,33 +16,33 @@ namespace InputHumanizer.Input
 
         private InputLockManager() { }
 
-        public async SyncTask<IInputController> GetInputControllerLock(string requestingPlugin, InputHumanizerSettings settings, CancellationToken cancellationToken = default)
+        public async SyncTask<IInputController> GetInputControllerLock(string requestingPlugin, InputHumanizer plugin, InputHumanizerSettings settings, CancellationToken cancellationToken = default)
         {
             await Semaphore.WaitAsync(cancellationToken);
             PluginWithSemaphore = requestingPlugin;
-            return new InputController(settings, this);
+            return new InputController(plugin, settings, this);
         }
 
-        public async SyncTask<IInputController> GetInputControllerLock(string requestingPlugin, InputHumanizerSettings settings, TimeSpan waitPeriod)
+        public async SyncTask<IInputController> GetInputControllerLock(string requestingPlugin, InputHumanizer plugin, InputHumanizerSettings settings, TimeSpan waitPeriod)
         {
             if (await Semaphore.WaitAsync(waitPeriod))
             {
                 PluginWithSemaphore = requestingPlugin;
-                return new InputController(settings, this);
+                return new InputController(plugin, settings, this);
             }
 
             return null;
         }
 
-        public bool TryGetController(string requestingPlugin)
+        public IInputController TryGetInputController(string requestingPlugin, InputHumanizer plugin, InputHumanizerSettings settings)
         {
             if (Semaphore.Wait(TimeSpan.Zero))
             {
                 PluginWithSemaphore = requestingPlugin;
-                return true;
+                return new InputController(plugin, settings, this);
             }
 
-            return false;
+            return null;
         }
 
         public void ReleaseController()

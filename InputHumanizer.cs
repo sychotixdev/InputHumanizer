@@ -14,10 +14,16 @@ namespace InputHumanizer
     {
         public override bool Initialise()
         {
-            GameController.PluginBridge.SaveMethod("InputHumanizer.TryGetInputController", (string requestingPlugin, out IInputController controller) =>
+            GameController.PluginBridge.SaveMethod("InputHumanizer.TryGetInputController", (string requestingPlugin) =>
             {
-                return TryGetInputController(requestingPlugin, out controller);
+                IInputController controller;
+                if (TryGetInputController(requestingPlugin, out controller))
+                {
+                    return controller;
+                }
+                return null;
             });
+
 
             GameController.PluginBridge.SaveMethod("InputHumanizer.GetInputController", (string requestingPlugin, TimeSpan waitTime) =>
             {
@@ -29,10 +35,14 @@ namespace InputHumanizer
 
         public async SyncTask<IInputController> GetInputController(string requestingPlugin, TimeSpan waitTime)
         {
-            IInputController controller = await InputLockManager.Instance.GetInputControllerLock(requestingPlugin, Settings, waitTime);
+            IInputController controller = await InputLockManager.Instance.GetInputControllerLock(requestingPlugin, this, Settings, waitTime);
             if (controller == null)
             {
                 LogError($"InputHumanizer - Plugin {requestingPlugin} requested input controller but {InputLockManager.Instance.PluginWithSemaphore} is still holding it. Try your action again later.");
+            }
+            else
+            {
+                DebugLog("Plugin: " + requestingPlugin + " successfully got input controller lock.");
             }
 
             return controller;
@@ -40,17 +50,26 @@ namespace InputHumanizer
 
         public bool TryGetInputController(string requestingPlugin, out IInputController controller)
         {
-            bool gotLock = InputLockManager.Instance.TryGetController(requestingPlugin);
-            if (gotLock)
+            controller = InputLockManager.Instance.TryGetInputController(requestingPlugin, this, Settings);
+            bool wasSuccess = controller != null;
+            if (wasSuccess)
             {
-                controller = new InputController(Settings, InputLockManager.Instance);
+                DebugLog("Plugin: " + requestingPlugin + " successfully got input controller lock.");
             }
             else
             {
-                controller = null;
+                DebugLog("Plugin: " + requestingPlugin + " failed to get input lock.");
             }
 
-            return gotLock;
+            return wasSuccess;
+        }
+
+        public void DebugLog(String message)
+        {
+            if (Settings.Debug)
+            {
+                LogMsg(message);
+            }
         }
 
         public class InputHumanizerSettings : ISettings
@@ -77,6 +96,7 @@ namespace InputHumanizer
             public RangeNode<int> MaximumDelay { get; set; } = new(150, 0, 1000);
 
             public ToggleNode Enable { get; set; } = new ToggleNode(true);
+            public ToggleNode Debug { get; set; } = new ToggleNode(false);
         }
     }
 }

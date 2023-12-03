@@ -11,8 +11,9 @@ namespace InputHumanizer.Input
 {
     internal class InputController : IInputController
     {
-        internal InputController(InputHumanizerSettings settings, InputLockManager manager)
+        internal InputController(InputHumanizer plugin, InputHumanizerSettings settings, InputLockManager manager)
         {
+            Plugin = plugin;
             Settings = settings;
             Manager = manager;
         }
@@ -28,12 +29,14 @@ namespace InputHumanizer.Input
             Manager.ReleaseController();
         }
 
+        private InputHumanizer Plugin { get; }
         private InputHumanizerSettings Settings { get; }
         private InputLockManager Manager { get; }
         private Dictionary<Keys, DateTime> ButtonDelays = new Dictionary<Keys, DateTime>();
 
         public bool KeyDown(Keys key)
         {
+            Plugin.DebugLog("KeyDown: " + key);
             ExileCore.Input.KeyDown(key);
 
             ButtonDelays[key] = DateTime.Now.AddMilliseconds(GenerateDelay());
@@ -55,10 +58,12 @@ namespace InputHumanizer.Input
                 if (now < releaseTime)
                 {
                     TimeSpan remainingDelay = now.Subtract(releaseTime);
+                    Plugin.DebugLog("KeyUp remaining delay key:" + key + " delay: " + remainingDelay);
                     await Task.Delay(remainingDelay, cancellationToken);
                 }
             }
 
+            Plugin.DebugLog("KeyUp: " + key);
             // Delays should now be handled just fine
             ExileCore.Input.KeyUp(key);
 
@@ -91,12 +96,15 @@ namespace InputHumanizer.Input
                     return false;
             }
 
+            Plugin.DebugLog("Click Delay");
             // We will also have a delay on the click, not just the move.
             await Task.Delay(GenerateDelay(), cancellationToken);
 
+            Plugin.DebugLog("Click " + button);
             // Delays should now be handled just fine
             ExileCore.Input.Click(button);
 
+            Plugin.DebugLog("Click Delay 2");
             // Do we want to sleep TWICE here?
             await Task.Delay(GenerateDelay(), cancellationToken);
 
@@ -117,12 +125,15 @@ namespace InputHumanizer.Input
                     return false;
             }
 
+            Plugin.DebugLog("Vertical Scroll Delay");
             // We will also have a delay on the click, not just the move.
             await Task.Delay(GenerateDelay(), cancellationToken);
 
+            Plugin.DebugLog("Vertical Scroll");
             // Delays should now be handled just fine
             ExileCore.Input.VerticalScroll(forward, numClicks);
 
+            Plugin.DebugLog("Vertical Scroll Delay 2");
             // Do we want to sleep TWICE here?
             await Task.Delay(GenerateDelay(), cancellationToken);
 
@@ -136,6 +147,7 @@ namespace InputHumanizer.Input
 
         public async SyncTask<bool> MoveMouse(Vector2 coordinate, int maxInterpolationDistance, int minInterpolationDelay, int maxInterpolationDelay, CancellationToken cancellationToken = default)
         {
+            Plugin.DebugLog("Mouse Move start");
             return await Mouse.MoveMouse(coordinate, maxInterpolationDistance, minInterpolationDelay, maxInterpolationDelay, cancellationToken);
         }
 
