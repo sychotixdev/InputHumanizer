@@ -4,8 +4,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 17.8.34316.72
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "InputHumanizer", "InputHumanizer.csproj", "{90409194-722D-4186-A67B-17734053D5F1}"
+	ProjectSection(ProjectDependencies) = postProject
+		{DA52ECFF-2DD4-48BB-943B-BF43BAACC91C} = {DA52ECFF-2DD4-48BB-943B-BF43BAACC91C}
+	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InputHumanizerLib", "..\InputHumanizerLib\InputHumanizerLib.csproj", "{DA52ECFF-2DD4-48BB-943B-BF43BAACC91C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "InputHumanizerLib", "..\InputHumanizerLib\InputHumanizerLib.csproj", "{DA52ECFF-2DD4-48BB-943B-BF43BAACC91C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

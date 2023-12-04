@@ -34,13 +34,14 @@ namespace InputHumanizer.Input
         private InputLockManager Manager { get; }
         private Dictionary<Keys, DateTime> ButtonDelays = new Dictionary<Keys, DateTime>();
 
-        public bool KeyDown(Keys key)
+        public async SyncTask<bool> KeyDown(Keys key, CancellationToken cancellationToken = default)
         {
+            await Task.Delay(GenerateDelay(), cancellationToken);
+
             Plugin.DebugLog("KeyDown: " + key);
             ExileCore.Input.KeyDown(key);
 
             ButtonDelays[key] = DateTime.Now.AddMilliseconds(GenerateDelay());
-
             return true;
         }
 
