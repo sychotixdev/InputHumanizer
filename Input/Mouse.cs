@@ -2,6 +2,7 @@
 using Kalon;
 using Kalon.Native.Structs;
 using System;
+using System.Diagnostics;
 using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,7 +21,7 @@ namespace InputHumanizer.Input
             return (1 - interpolationFactor) * startValue + interpolationFactor * endValue;
         }
 
-        public static async SyncTask<bool> MoveMouse(Vector2 targetPosition, int maxInterpolationDistance = 700, int minInterpolationDelay = 0, int maxInterpolationDelay = 300, CancellationToken cancellationToken = default)
+        public static async SyncTask<bool> MoveMouse(InputHumanizer plugin, Vector2 targetPosition, int maxInterpolationDistance = 700, int minInterpolationDelay = 0, int maxInterpolationDelay = 300, CancellationToken cancellationToken = default)
         {
             var currentPosition = ExileCore.Input.ForceMousePositionNum;
 
@@ -33,7 +34,11 @@ namespace InputHumanizer.Input
 
             var movements = CursorMover.GenerateMovements(new Point((int)currentPosition.X, (int)currentPosition.Y), new Point((int)targetPosition.X, (int)targetPosition.Y), (int)mouseSpeed.TotalMilliseconds);
 
-            foreach( var movement in movements)
+
+            var stopwatch = Stopwatch.StartNew();
+            TimeSpan totalDelay = TimeSpan.Zero;
+
+            foreach ( var movement in movements)
             {
                 // First, we need to loop through and spam SetCursorPos to get us to each location
                 foreach(var point in movement.Points)
@@ -41,7 +46,13 @@ namespace InputHumanizer.Input
                     ExileCore.Input.SetCursorPos(new Vector2(point.X, point.Y));
                 }
 
-                await Task.Delay(movement.Delay, cancellationToken);
+                totalDelay = totalDelay.Add(movement.Delay);
+
+                if (stopwatch.Elapsed < totalDelay)
+                {
+                    plugin.DebugLog("InputHumanizer: we actually ended up sleeping in MouseMove");
+                    await Task.Delay(totalDelay - stopwatch.Elapsed, cancellationToken);
+                }
             }
 
             return true;

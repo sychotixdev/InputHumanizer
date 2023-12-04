@@ -148,7 +148,7 @@ namespace InputHumanizer.Input
         public async SyncTask<bool> MoveMouse(Vector2 coordinate, int maxInterpolationDistance, int minInterpolationDelay, int maxInterpolationDelay, CancellationToken cancellationToken = default)
         {
             Plugin.DebugLog("Mouse Move start");
-            return await Mouse.MoveMouse(coordinate, maxInterpolationDistance, minInterpolationDelay, maxInterpolationDelay, cancellationToken);
+            return await Mouse.MoveMouse(Plugin, coordinate, maxInterpolationDistance, minInterpolationDelay, maxInterpolationDelay, cancellationToken);
         }
 
         public int GenerateDelay()
