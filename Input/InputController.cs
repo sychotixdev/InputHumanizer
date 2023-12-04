@@ -57,7 +57,7 @@ namespace InputHumanizer.Input
                 // If we are not allowed to release this key yet, we need to sleep until we can
                 if (now < releaseTime)
                 {
-                    TimeSpan remainingDelay = now.Subtract(releaseTime);
+                    TimeSpan remainingDelay = releaseTime.Subtract(now);
                     Plugin.DebugLog("KeyUp remaining delay key:" + key + " delay: " + remainingDelay);
                     await Task.Delay(remainingDelay, cancellationToken);
                 }
