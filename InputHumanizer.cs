@@ -102,24 +102,24 @@ namespace InputHumanizer
 
             [Menu("Wind Strength", "Wind Mouse magnitude of the wind force fluctuations")]
 
-            public RangeNode<float> WindStrength { get; set; } = new RangeNode<float>(3.0f, 0.0f, 10.0f);
+            public RangeNode<float> WindStrength { get; set; } = new RangeNode<float>(2.0f, 0.0f, 10.0f);
             [Menu("Gravity Strength", "Wind Mouse magnitude of the gravitational fornce")]
 
             public RangeNode<float> GravityStrength { get; set; } = new RangeNode<float>(9.0f, 0.0f, 15.0f);
 
             [Menu("Step size", "Wind Mouse maximum step size (velocity clip threshold)")]
 
-            public RangeNode<float> StepSize { get; set; } = new RangeNode<float>(15.0f, 0.0f, 30.0f);
+            public RangeNode<float> StepSize { get; set; } = new RangeNode<float>(10.0f, 0.0f, 30.0f);
 
             [Menu("Target Area", "Wind Mouse distance where wind behavior changes from random to damped")]
 
             public RangeNode<float> TargetArea { get; set; } = new RangeNode<float>(12.0f, 0.0f, 30.0f);
 
             [Menu("Wind Mouse Minimum Delay", "Minimum Delay in Milliseconds")]
-            public RangeNode<int> WindMouseMinimumDelay { get; set; } = new(10, 0, 100);
+            public RangeNode<int> WindMouseMinimumDelay { get; set; } = new(5, 0, 100);
 
             [Menu("Wind Mouse Maximum Delay", "Maximum Delay in Milliseconds")]
-            public RangeNode<int> WindMouseMaximumDelay { get; set; } = new(50, 0, 1000);
+            public RangeNode<int> WindMouseMaximumDelay { get; set; } = new(20, 0, 1000);
 
             public ToggleNode Enable { get; set; } = new ToggleNode(true);
             public ToggleNode Debug { get; set; } = new ToggleNode(false);
