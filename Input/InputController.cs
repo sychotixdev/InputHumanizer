@@ -143,13 +143,28 @@ namespace InputHumanizer.Input
 
         public async SyncTask<bool> MoveMouse(Vector2 coordinate, CancellationToken cancellationToken = default)
         {
-            return await MoveMouse(coordinate, Settings.MaximumInterpolationDistance, Settings.MinimumInterpolationDelay, Settings.MaximumInterpolationDelay, cancellationToken);
+            if (Settings.UseWindMouse)
+            {
+                return await MoveMouseWindMouseImpl(coordinate, Settings.GravityStrength, Settings.WindStrength, Settings.WindMouseMinimumDelay, Settings.WindMouseMaximumDelay, Settings.StepSize, Settings.TargetArea, cancellationToken);
+            }
+            else
+            {
+                return await MoveMouse(coordinate, Settings.MaximumInterpolationDistance, Settings.MinimumInterpolationDelay, Settings.MaximumInterpolationDelay, cancellationToken);
+            }
         }
 
         public async SyncTask<bool> MoveMouse(Vector2 coordinate, int maxInterpolationDistance, int minInterpolationDelay, int maxInterpolationDelay, CancellationToken cancellationToken = default)
         {
             Plugin.DebugLog("Mouse Move start");
             return await Mouse.MoveMouse(Plugin, coordinate, maxInterpolationDistance, minInterpolationDelay, maxInterpolationDelay, cancellationToken);
+        }
+
+        public async SyncTask<bool> MoveMouseWindMouseImpl(Vector2 coordinate, double gravityStrength, double windStrength, int minInterpolationDelay, int maxInterpolationDelay, double stepSize, double targetArea, CancellationToken cancellationToken = default)
+        {
+            Plugin.DebugLog("Mouse Move start");
+            ExileCore.Shared.WinApi.GetCursorPos(out SharpDX.Point startPoint);
+
+            return await Mouse.WindMouseImpl(Plugin, startPoint.X, startPoint.Y, coordinate.X, coordinate.Y, gravityStrength, windStrength, minInterpolationDelay, maxInterpolationDelay, stepSize, targetArea, cancellationToken);
         }
 
         public int GenerateDelay()
