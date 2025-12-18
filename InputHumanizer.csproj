@@ -22,11 +22,13 @@
       <HintPath>$(exileCore2Package)\ExileCore.dll</HintPath>
       <Private>False</Private>
     </Reference>
+	  <Reference Include="InputHumanizerLib">
+	  <HintPath>$(exileCore2Package)\InputHumanizerLib.dll</HintPath>
+	  <Private>False</Private>
+
+	  </Reference>
     <Reference Include="Kalon">
     </Reference>
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\InputHumanizerLib\InputHumanizerLib.csproj" />
   </ItemGroup>
 
 </Project>
