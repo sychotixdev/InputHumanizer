@@ -19,15 +19,14 @@
   </ItemGroup>
   <ItemGroup Condition="'$(SolutionName)' != 'ExileApi'">
     <Reference Include="ExileCore">
-      <HintPath>$(exapiPackage)\ExileCore.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="InputHumanizerLib">
-      <HintPath>$(exapiPackage)\InputHumanizerLib.dll</HintPath>
+      <HintPath>$(exileCore2Package)\ExileCore.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Kalon">
     </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\InputHumanizerLib\InputHumanizerLib.csproj" />
   </ItemGroup>
 
 </Project>
