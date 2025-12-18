@@ -18,8 +18,8 @@
     </Reference>
   </ItemGroup>
   <ItemGroup Condition="'$(SolutionName)' != 'ExileApi'">
-    <Reference Include="ExileCore">
-      <HintPath>$(exileCore2Package)\ExileCore.dll</HintPath>
+    <Reference Include="ExileCore2">
+      <HintPath>$(exileCore2Package)\ExileCore2.dll</HintPath>
       <Private>False</Private>
     </Reference>
 	  <Reference Include="InputHumanizerLib">

@@ -1,4 +1,5 @@
-﻿using ExileCore.Shared;
+﻿using ExileCore2.Shared;
+using Microsoft.VisualBasic.ApplicationServices;
 using System;
 using System.Collections.Generic;
 using System.Numerics;
@@ -39,7 +40,7 @@ namespace InputHumanizer.Input
             await Task.Delay(GenerateDelay(), cancellationToken);
 
             Plugin.DebugLog("KeyDown: " + key);
-            ExileCore.Input.KeyDown(key);
+            ExileCore2.Input.KeyDown(key);
 
             ButtonDelays[key] = DateTime.Now.AddMilliseconds(GenerateDelay());
             return true;
@@ -66,7 +67,7 @@ namespace InputHumanizer.Input
 
             Plugin.DebugLog("KeyUp: " + key);
             // Delays should now be handled just fine
-            ExileCore.Input.KeyUp(key);
+            ExileCore2.Input.KeyUp(key);
 
             ButtonDelays.Remove(key);
 
@@ -103,7 +104,7 @@ namespace InputHumanizer.Input
 
             Plugin.DebugLog("Click " + button);
             // Delays should now be handled just fine
-            ExileCore.Input.Click(button);
+            ExileCore2.Input.Click(button);
 
             Plugin.DebugLog("Click Delay 2");
             // Do we want to sleep TWICE here?
@@ -132,7 +133,7 @@ namespace InputHumanizer.Input
 
             Plugin.DebugLog("Vertical Scroll");
             // Delays should now be handled just fine
-            ExileCore.Input.VerticalScroll(forward, numClicks);
+            ExileCore2.Input.VerticalScroll(forward, numClicks);
 
             Plugin.DebugLog("Vertical Scroll Delay 2");
             // Do we want to sleep TWICE here?
@@ -162,7 +163,7 @@ namespace InputHumanizer.Input
         public async SyncTask<bool> MoveMouseWindMouseImpl(Vector2 coordinate, double gravityStrength, double windStrength, int minInterpolationDelay, int maxInterpolationDelay, double stepSize, double targetArea, CancellationToken cancellationToken = default)
         {
             Plugin.DebugLog("Mouse Move start");
-            ExileCore.Shared.WinApi.GetCursorPos(out SharpDX.Point startPoint);
+            var startPoint = ExileCore2.Input.ForceMousePosition;
 
             return await Mouse.WindMouseImpl(Plugin, startPoint.X, startPoint.Y, coordinate.X, coordinate.Y, gravityStrength, windStrength, minInterpolationDelay, maxInterpolationDelay, stepSize, targetArea, cancellationToken);
         }

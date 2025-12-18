@@ -1,4 +1,4 @@
-﻿using ExileCore.Shared;
+﻿using ExileCore2.Shared;
 using Kalon;
 using Kalon.Native.Structs;
 using System;
@@ -24,7 +24,7 @@ namespace InputHumanizer.Input
 
         public static async SyncTask<bool> MoveMouse(InputHumanizer plugin, Vector2 targetPosition, int maxInterpolationDistance = 700, int minInterpolationDelay = 0, int maxInterpolationDelay = 300, CancellationToken cancellationToken = default)
         {
-            var currentPosition = ExileCore.Input.ForceMousePositionNum;
+            var currentPosition = ExileCore2.Input.ForceMousePosition;
 
             float distance = Vector2.Distance(currentPosition, targetPosition);
             float normalizedDistance = NormalizeDistance(distance, maxInterpolationDistance);
@@ -44,7 +44,7 @@ namespace InputHumanizer.Input
                 // First, we need to loop through and spam SetCursorPos to get us to each location
                 foreach(var point in movement.Points)
                 {
-                    ExileCore.Input.SetCursorPos(new Vector2(point.X, point.Y));
+                    ExileCore2.Input.SetCursorPos(new Vector2(point.X, point.Y));
                 }
 
                 totalDelay = totalDelay.Add(movement.Delay);
@@ -121,7 +121,7 @@ namespace InputHumanizer.Input
 
             foreach (var position in positions)
             {
-                ExileCore.Input.SetCursorPos(new Vector2(position.X, position.Y));
+                ExileCore2.Input.SetCursorPos(new Vector2(position.X, position.Y));
 
                 int delay = random.Next(minWait, maxWait);
 
