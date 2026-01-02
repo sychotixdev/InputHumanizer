@@ -111,6 +111,12 @@ namespace InputHumanizer.Input
             LogMessage("Touched last send time.");
         }
 
+
+        private void DebugLog(string message)
+        {
+            // Use reflection to call _plugin.LogMessage if available
+            _plugin?.DebugLog(message);
+        }
         private void LogMessage(string message)
         {
             // Use reflection to call _plugin.LogMessage if available
@@ -147,7 +153,7 @@ namespace InputHumanizer.Input
                 if (response != ResponseType.Pong)
                     throw new IOException("Ping validation failed");
 
-                _plugin.LogMessage("Pipe connected and ping validated.");
+                _plugin.DebugLog("Pipe connected and ping validated.");
                 return true;
             }
             catch (Exception ex)
@@ -225,11 +231,11 @@ namespace InputHumanizer.Input
                 w.Write(p.DelayMs);
             }
 
-            LogMessage("Sending SetCursorPath");
+            DebugLog("Sending SetCursorPath");
             var response = await SendCommandAndWaitAsync(ms.ToArray(), timeoutMs);
             if (response == ResponseType.CursorPathComplete)
             {
-                LogMessage("Successful cursor path response");
+                DebugLog("Successful cursor path response");
             }
             else {
                 LogError("Failed cursor path response");
@@ -239,12 +245,12 @@ namespace InputHumanizer.Input
 
         public async Task<bool> KeyDownAsync(int virtualKey, int timeoutMs = 5000)
         {
-            LogMessage($"Sending KeyDown for {virtualKey}");
+            DebugLog($"Sending KeyDown for {virtualKey}");
 
             bool response = await SetKeyStateInternalAsync(virtualKey, true, timeoutMs);
             if (response == true)
             {
-                LogMessage($"KeyDownAsync succeeded for virtual key {virtualKey}");
+                DebugLog($"KeyDownAsync succeeded for virtual key {virtualKey}");
             }
             else
             {
@@ -255,12 +261,12 @@ namespace InputHumanizer.Input
 
         public async Task<bool> KeyUpAsync(int virtualKey, int timeoutMs = 5000)
         {
-            LogMessage($"Sending KeyUp for {virtualKey}");
+            DebugLog($"Sending KeyUp for {virtualKey}");
 
             bool response = await SetKeyStateInternalAsync(virtualKey, false, timeoutMs);
             if (response == true)
             {
-                LogMessage($"KeyUpAsync succeeded for virtual key {virtualKey}");
+                DebugLog($"KeyUpAsync succeeded for virtual key {virtualKey}");
             }
             else
             {
@@ -295,7 +301,7 @@ namespace InputHumanizer.Input
                 var response = await SendCommandAndWaitAsync(ping, 3000);
                 if (response == ResponseType.Pong)
                 {
-                    LogMessage("Ping successful.");
+                    DebugLog("Ping successful.");
                 }
                 else
                 {
