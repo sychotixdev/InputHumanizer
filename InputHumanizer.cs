@@ -6,12 +6,21 @@ using ExileCore2.Shared.Interfaces;
 using ExileCore2.Shared.Nodes;
 using InputHumanizer.Input;
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 using static InputHumanizer.InputHumanizer;
 
 namespace InputHumanizer
 {
     public class InputHumanizer : BaseSettingsPlugin<InputHumanizerSettings>
     {
+        private BackgroundInput BackgroundInput = null;
+
+        public InputHumanizer()
+        {
+            BackgroundInput = new BackgroundInput(this);
+        }
+
         public override bool Initialise()
         {
             GameController.PluginBridge.SaveMethod("InputHumanizer.TryGetInputController", (string requestingPlugin) =>
@@ -24,13 +33,52 @@ namespace InputHumanizer
                 return null;
             });
 
-
             GameController.PluginBridge.SaveMethod("InputHumanizer.GetInputController", (string requestingPlugin, TimeSpan waitTime) =>
             {
                 return GetInputController(requestingPlugin, waitTime);
             });
 
+            if (!BackgroundInput.IsConnected && Settings.UseBackgroundInput.Value == true)
+            {
+                // If we are not connected and using background input, try to connect now
+                BackgroundInput.ConnectAsync().Wait();
+                LogMessage(("InputHumanizer - Background Input Controller connected: " + BackgroundInput.IsConnected));
+            }
+
+            Settings.UseBackgroundInput.OnValueChanged += (sender, e) =>
+            {
+                // If it is being enabled and we aren't connected... try to connect
+                if (e == true)
+                {
+                    // Try to connect
+                    if (!BackgroundInput.IsConnected)
+                    {
+                        BackgroundInput.ConnectAsync().Wait();
+                    }
+                }
+            };
+
             return true;
+        }
+
+        public override void Tick()
+        {
+            base.Tick();
+
+            var backgroundInputController = GetBackgroundInputController();
+            if (backgroundInputController != null)
+            {
+                //_ = backgroundInputController.SendPingAsync();
+            }
+        }
+
+        public BackgroundInput GetBackgroundInputController()
+        {
+            if (Settings.UseBackgroundInput.Value == true)
+            {
+                return BackgroundInput;
+            }
+            return null;
         }
 
         public async SyncTask<IInputController> GetInputController(string requestingPlugin, TimeSpan waitTime)
@@ -74,6 +122,9 @@ namespace InputHumanizer
 
         public class InputHumanizerSettings : ISettings
         {
+            [Menu("Use Background Input", "Enables Background Input")]
+            public ToggleNode UseBackgroundInput { get; set; } = new ToggleNode(false);
+
             [Menu("Minimum Interpolation Delay", "Minimum Delay in Milliseconds")]
             public RangeNode<int> MinimumInterpolationDelay { get; set; } = new(0, 0, 1000);
 

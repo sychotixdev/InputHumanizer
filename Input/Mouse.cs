@@ -4,6 +4,7 @@ using Kalon.Native.Structs;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
@@ -24,39 +25,125 @@ namespace InputHumanizer.Input
 
         public static async SyncTask<bool> MoveMouse(InputHumanizer plugin, Vector2 targetPosition, int maxInterpolationDistance = 700, int minInterpolationDelay = 0, int maxInterpolationDelay = 300, CancellationToken cancellationToken = default)
         {
-            var currentPosition = ExileCore2.Input.ForceMousePosition;
+            var backgroundController = plugin.GetBackgroundInputController();
+            var windowRect = plugin.GameController.Window.GetWindowRectangleTimeCache;
+            Vector2 windowOffset = windowRect.TopLeft;
 
-            float distance = Vector2.Distance(currentPosition, targetPosition);
+            // 1. Determine Start Position
+            Vector2 currentPosScreen = ExileCore2.Input.ForceMousePosition;
+            Vector2 startPosClient;
+            Vector2 finalTarget;
+
+            if (backgroundController != null)
+            {
+                finalTarget = targetPosition - windowOffset;
+                startPosClient = GetClampedWindowIntersection(currentPosScreen, finalTarget, windowRect);
+
+                plugin.DebugLog($"MoveMouse [BG]: ScreenOffset: {windowOffset}, TargetScreen: {targetPosition} -> TargetClient: {finalTarget}, StartClient: {startPosClient}");
+            }
+            else
+            {
+                finalTarget = targetPosition;
+                startPosClient = currentPosScreen;
+                plugin.DebugLog($"MoveMouse [FG]: TargetScreen: {finalTarget}, StartScreen: {startPosClient}");
+            }
+
+            // Path Logic
+            float distance = Vector2.Distance(startPosClient, finalTarget);
             float normalizedDistance = NormalizeDistance(distance, maxInterpolationDistance);
-
             float interpolatedValue = Lerp(minInterpolationDelay, maxInterpolationDelay, normalizedDistance);
-
             TimeSpan mouseSpeed = TimeSpan.FromMilliseconds(interpolatedValue + Random.Shared.Next(25, 100));
 
-            var movements = CursorMover.GenerateMovements(new Point((int)currentPosition.X, (int)currentPosition.Y), new Point((int)targetPosition.X, (int)targetPosition.Y), (int)mouseSpeed.TotalMilliseconds);
+            // Generate Path
+            var movements = CursorMover.GenerateMovements(
+                new Point((int)startPosClient.X, (int)startPosClient.Y),
+                new Point((int)finalTarget.X, (int)finalTarget.Y),
+                (int)mouseSpeed.TotalMilliseconds);
 
-
-            var stopwatch = Stopwatch.StartNew();
-            TimeSpan totalDelay = TimeSpan.Zero;
-
-            foreach ( var movement in movements)
+            if (backgroundController != null)
             {
-                // First, we need to loop through and spam SetCursorPos to get us to each location
-                foreach(var point in movement.Points)
+                List<CursorPointWithDelay> processedPoints = new List<CursorPointWithDelay>();
+                double accumulatedDelay = 0;
+                var movementsList = movements.ToList();
+
+                foreach (var movement in movementsList)
                 {
-                    ExileCore2.Input.SetCursorPos(new Vector2(point.X, point.Y));
+                    if (movement.Points == null || !movement.Points.Any()) continue;
+
+                    var pointsList = movement.Points.ToList();
+                    double rawDelayPerPoint = movement.Delay.TotalMilliseconds / pointsList.Count;
+
+                    for (int i = 0; i < pointsList.Count; i++)
+                    {
+                        accumulatedDelay += rawDelayPerPoint;
+                        bool isLastPointOfEntirePath = (movement == movementsList.Last() && i == pointsList.Count - 1);
+
+                        if (accumulatedDelay >= 1.0 || isLastPointOfEntirePath)
+                        {
+                            processedPoints.Add(new CursorPointWithDelay(
+                                pointsList[i].X,
+                                pointsList[i].Y,
+                                (uint)Math.Floor(accumulatedDelay)
+                            ));
+                            accumulatedDelay -= Math.Floor(accumulatedDelay);
+                        }
+                    }
                 }
 
-                totalDelay = totalDelay.Add(movement.Delay);
-
-                if (stopwatch.Elapsed < totalDelay)
+                if (processedPoints.Any())
                 {
-                    plugin.DebugLog("InputHumanizer: we actually ended up sleeping in MouseMove");
-                    await Task.Delay(totalDelay - stopwatch.Elapsed, cancellationToken);
+                    var first = processedPoints.First();
+                    var last = processedPoints.Last();
+                    plugin.DebugLog($"MoveMouse [Pipe Send]: Points: {processedPoints.Count}, FirstPt: ({first.X},{first.Y}), LastPt: ({last.X},{last.Y})");
+                }
+
+                await backgroundController.SetCursorPathAsync(processedPoints.ToArray(), 5000);
+            }
+            else
+            {
+                // Standard Foreground logic...
+                var stopwatch = Stopwatch.StartNew();
+                TimeSpan totalDelay = TimeSpan.Zero;
+                foreach (var movement in movements)
+                {
+                    foreach (var point in movement.Points)
+                    {
+                        ExileCore2.Input.SetCursorPos(new Vector2(point.X, point.Y));
+                    }
+                    totalDelay = totalDelay.Add(movement.Delay);
+                    if (stopwatch.Elapsed < totalDelay)
+                        await Task.Delay(totalDelay - stopwatch.Elapsed, cancellationToken);
                 }
             }
 
             return true;
+        }
+
+        private static Vector2 GetClampedWindowIntersection(Vector2 currentScreen, Vector2 targetClient, RectangleF windowRect)
+        {
+            if (windowRect.Contains(currentScreen.X, currentScreen.Y))
+            {
+                return currentScreen - windowRect.TopLeft;
+            }
+
+            Vector2 currentClient = currentScreen - windowRect.TopLeft;
+            float xmin = 0, ymin = 0, xmax = windowRect.Width, ymax = windowRect.Height;
+            float t = 1.0f;
+
+            // Safety: Only calculate t if there is actual movement on that axis to avoid DivByZero
+            if (Math.Abs(targetClient.X - currentClient.X) > 0.01f)
+            {
+                if (currentClient.X < xmin) t = Math.Min(t, (xmin - currentClient.X) / (targetClient.X - currentClient.X));
+                if (currentClient.X > xmax) t = Math.Min(t, (xmax - currentClient.X) / (targetClient.X - currentClient.X));
+            }
+
+            if (Math.Abs(targetClient.Y - currentClient.Y) > 0.01f)
+            {
+                if (currentClient.Y < ymin) t = Math.Min(t, (ymin - currentClient.Y) / (targetClient.Y - currentClient.Y));
+                if (currentClient.Y > ymax) t = Math.Min(t, (ymax - currentClient.Y) / (targetClient.Y - currentClient.Y));
+            }
+
+            return currentClient + (targetClient - currentClient) * t;
         }
 
         // Credits: https://ben.land/post/2021/04/25/windmouse-human-mouse-movement/#the-code

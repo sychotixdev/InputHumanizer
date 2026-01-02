@@ -28,6 +28,7 @@ namespace InputHumanizer.Input
             if (await Semaphore.WaitAsync(waitPeriod))
             {
                 PluginWithSemaphore = requestingPlugin;
+
                 return new InputController(plugin, settings, this);
             }
 

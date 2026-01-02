@@ -40,7 +40,16 @@ namespace InputHumanizer.Input
             await Task.Delay(GenerateDelay(), cancellationToken);
 
             Plugin.DebugLog("KeyDown: " + key);
-            ExileCore2.Input.KeyDown(key);
+
+            if (Plugin.GetBackgroundInputController() != null)
+            {
+                await Plugin.GetBackgroundInputController().KeyDownAsync((int)key);
+            }
+            else
+            {
+                ExileCore2.Input.KeyDown(key);
+            }
+
 
             ButtonDelays[key] = DateTime.Now.AddMilliseconds(GenerateDelay());
             return true;
@@ -66,8 +75,15 @@ namespace InputHumanizer.Input
             }
 
             Plugin.DebugLog("KeyUp: " + key);
-            // Delays should now be handled just fine
-            ExileCore2.Input.KeyUp(key);
+
+            if (Plugin.GetBackgroundInputController() != null)
+            {
+                await Plugin.GetBackgroundInputController().KeyUpAsync((int)key);
+            }
+            else
+            {
+                ExileCore2.Input.KeyUp(key);
+            }
 
             ButtonDelays.Remove(key);
 
@@ -84,12 +100,12 @@ namespace InputHumanizer.Input
             return await Click(button, null, cancellationToken);
         }
 
-        public async SyncTask<bool> Click(MouseButtons button, Vector2 coordinate, CancellationToken cancellationToken = default)
+        public async SyncTask<bool> Click(MouseButtons button, Vector2? coordinate, CancellationToken cancellationToken = default)
         {
-            return await Click(button, (Vector2?)coordinate, cancellationToken);
+            return await ClickWithModifiers(button, coordinate, MouseModifiers.None, cancellationToken);
         }
 
-        private async SyncTask<bool> Click(MouseButtons button, Vector2? coordinate, CancellationToken cancellationToken = default)
+        public async SyncTask<bool> ClickWithModifiers(MouseButtons button, Vector2? coordinate, MouseModifiers modifiers, CancellationToken cancellationToken = default)
         {
             // Only if a position is specified do we move the mouse
             if (coordinate != null)
@@ -98,13 +114,54 @@ namespace InputHumanizer.Input
                     return false;
             }
 
+
+
             Plugin.DebugLog("Click Delay");
             // We will also have a delay on the click, not just the move.
             await Task.Delay(GenerateDelay(), cancellationToken);
 
             Plugin.DebugLog("Click " + button);
             // Delays should now be handled just fine
-            ExileCore2.Input.Click(button);
+            if (Settings.UseBackgroundInput && Plugin.GetBackgroundInputController() != null)
+            {
+                await Plugin.GetBackgroundInputController().ClickAsync(button == MouseButtons.Right, coordinate, MouseModifiers.Ctrl);
+            }
+            else
+            {
+                // 1. Press Modifiers Down
+                List<Keys> pressedModifiers = new List<Keys>();
+                if (modifiers.HasFlag(MouseModifiers.Ctrl)) pressedModifiers.Add(Keys.ControlKey);
+                if (modifiers.HasFlag(MouseModifiers.Shift)) pressedModifiers.Add(Keys.ShiftKey);
+                if (modifiers.HasFlag(MouseModifiers.Alt)) pressedModifiers.Add(Keys.Menu); // Menu is the Alt key in WinForms Keys
+
+
+                foreach (var key in pressedModifiers)
+                {
+                    await KeyDown(key, cancellationToken);
+                }
+
+                if (pressedModifiers.Count > 0)
+                {
+                    // Delay after pressing modifiers
+                    await Task.Delay(GenerateDelay(), cancellationToken);
+                }
+
+                ExileCore2.Input.Click(button);
+
+                if (pressedModifiers.Count > 0)
+                {
+                    // Delay before releasing modifiers
+                    await Task.Delay(GenerateDelay(), cancellationToken);
+                }
+
+                // 3. Release Modifiers Up (in reverse order for natural feel)
+                pressedModifiers.Reverse();
+                foreach (var key in pressedModifiers)
+                {
+                    await KeyUp(key, false, cancellationToken);
+                }
+            }
+
 
             Plugin.DebugLog("Click Delay 2");
             // Do we want to sleep TWICE here?
@@ -171,6 +228,17 @@ namespace InputHumanizer.Input
         public int GenerateDelay()
         {
             return Delay.GetDelay(Settings.MinimumDelay, Settings.MaximumDelay, Settings.DelayMean, Settings.DelayStandardDeviation);
+        }
+
+        public async SyncTask<bool> ClearMousePosition(CancellationToken cancellationToken = default)
+        {
+            if (Plugin.GetBackgroundInputController() != null)
+            {
+                Plugin.DebugLog("Clearing mouse position.");
+                return await Plugin.GetBackgroundInputController().ClearCursorAsync();
+            }
+
+            return true;
         }
     }
 }
