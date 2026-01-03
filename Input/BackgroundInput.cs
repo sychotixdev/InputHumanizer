@@ -16,7 +16,8 @@ namespace InputHumanizer.Input
         ClearKeyState = 3,
         Ping = 4,
         MouseClick = 5,
-        ClearCursor = 6
+        ClearCursor = 6,
+        GetForcedCursor = 7
     }
 
     public enum ResponseType : uint
@@ -25,7 +26,8 @@ namespace InputHumanizer.Input
         KeyStateAccepted = 2,
         Pong = 3,
         MouseClickComplete = 4,
-        CursorCleared = 5
+        CursorCleared = 5,
+        ForcedCursorPosition = 6
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -40,6 +42,14 @@ namespace InputHumanizer.Input
     {
         public ResponseType Type;
         public uint DataSize;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    struct ForcedCursorPositionResponse
+    {
+        public int X;
+        public int Y;
+        public int IsForced; // 1 or 0
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -208,7 +218,7 @@ namespace InputHumanizer.Input
             }
 
             var response = await SendCommandAndWaitAsync(ms.ToArray(), timeoutMs);
-            return response == ResponseType.MouseClickComplete;
+            return response.type == ResponseType.MouseClickComplete;
         }
 
         public async Task<bool> SetCursorPathAsync(
@@ -233,14 +243,14 @@ namespace InputHumanizer.Input
 
             DebugLog("Sending SetCursorPath");
             var response = await SendCommandAndWaitAsync(ms.ToArray(), timeoutMs);
-            if (response == ResponseType.CursorPathComplete)
+            if (response.type == ResponseType.CursorPathComplete)
             {
                 DebugLog("Successful cursor path response");
             }
             else {
                 LogError("Failed cursor path response");
             }
-            return response == ResponseType.CursorPathComplete;
+            return response.type == ResponseType.CursorPathComplete;
         }
 
         public async Task<bool> KeyDownAsync(int virtualKey, int timeoutMs = 5000)
@@ -287,7 +297,7 @@ namespace InputHumanizer.Input
             w.Write(isDown ? 1 : 0); // Write as a 4-byte integer
 
             var response = await SendCommandAndWaitAsync(ms.ToArray(), timeoutMs);
-            return response == ResponseType.KeyStateAccepted;
+            return response.type == ResponseType.KeyStateAccepted;
         }
 
         public async Task<bool> SendPingAsync()
@@ -299,7 +309,7 @@ namespace InputHumanizer.Input
             try
             {
                 var response = await SendCommandAndWaitAsync(ping, 3000);
-                if (response == ResponseType.Pong)
+                if (response.type == ResponseType.Pong)
                 {
                     DebugLog("Ping successful.");
                 }
@@ -307,7 +317,7 @@ namespace InputHumanizer.Input
                 {
                     LogError("Ping failed: unexpected response.");
                 }
-                return response == ResponseType.Pong;
+                return response.type == ResponseType.Pong;
             }
             catch
             {
@@ -324,10 +334,44 @@ namespace InputHumanizer.Input
             w.Write(0u); // no payload
 
             var response = await SendCommandAndWaitAsync(ms.ToArray(), timeoutMs);
-            return response == ResponseType.CursorCleared;
+            return response.type == ResponseType.CursorCleared;
         }
 
-        private async Task<ResponseType> SendCommandAndWaitAsync(
+        public async Task<Vector2?> GetForcedCursorPositionAsync(int timeoutMs = 2000)
+        {
+            using var ms = new MemoryStream();
+            using var w = new BinaryWriter(ms);
+
+            // Command header
+            w.Write((uint)CommandType.GetForcedCursor);
+            w.Write(0u); // no payload
+
+            var (type, payload) = await SendCommandAndWaitAsync(ms.ToArray(), timeoutMs);
+
+            if (type != ResponseType.ForcedCursorPosition)
+            {
+                LogError($"Unexpected response type: {type}");
+                return null;
+            }
+
+            if (payload == null || payload.Length != 12) // 3 ints = 12 bytes
+            {
+                LogError($"Invalid forced cursor payload size: {payload?.Length ?? 0}");
+                return null;
+            }
+
+            // Read the 3 integers directly from the byte array
+            int x = BitConverter.ToInt32(payload, 0);
+            int y = BitConverter.ToInt32(payload, 4);
+            int isForced = BitConverter.ToInt32(payload, 8);
+
+            if (isForced == 0)
+                return null;
+
+            return new Vector2(x, y);
+        }
+
+        private async Task<(ResponseType type, byte[]? payload)> SendCommandAndWaitAsync(
             byte[] commandBuffer,
             int timeoutMs)
         {
@@ -347,19 +391,23 @@ namespace InputHumanizer.Input
                 ResponseType type = (ResponseType)BitConverter.ToUInt32(headerBuf, 0);
                 uint dataSize = BitConverter.ToUInt32(headerBuf, 4);
 
+                byte[]? payload = null;
+
                 if (dataSize > 0)
                 {
-                    byte[] discard = new byte[dataSize];
-                    await ReadExactAsync(discard, (int)dataSize, timeoutMs);
+                    byte[] buffer = new byte[dataSize];
+                    await ReadExactAsync(buffer, (int)dataSize, timeoutMs);
+
+                    payload = buffer;
                 }
 
                 TouchLastSendTime();
-                return type;
+                return (type, payload);
             }
             catch (Exception ex)
             {
                 LogError($"Pipe command failed: {ex.Message}");
-                HandlePipeFailure();   // ← mandatory
+                HandlePipeFailure();
                 throw;
             }
             finally

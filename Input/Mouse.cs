@@ -36,6 +36,14 @@ namespace InputHumanizer.Input
 
             if (backgroundController != null)
             {
+                // First, if we have the background controller we're going to get the client's current position
+                var currentPosition = await backgroundController.GetForcedCursorPositionAsync();
+
+                if (currentPosition.HasValue)
+                {
+                    currentPosScreen = currentPosition.Value;
+                }
+
                 finalTarget = targetPosition - windowOffset;
                 startPosClient = GetClampedWindowIntersection(currentPosScreen, finalTarget, windowRect);
 

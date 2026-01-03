@@ -240,5 +240,21 @@ namespace InputHumanizer.Input
 
             return true;
         }
+
+
+        public async SyncTask<Vector2?> GetCursorPos(CancellationToken cancellationToken = default)
+        {
+            if (Plugin.GetBackgroundInputController() != null)
+            {
+                Plugin.DebugLog("Clearing mouse position.");
+                return await Plugin.GetBackgroundInputController().GetForcedCursorPositionAsync();
+            }
+            else
+            {
+                var pos = ExileCore2.Input.ForceMousePosition;
+                return new Vector2(pos.X, pos.Y);
+            }
+
+        }
     }
 }
