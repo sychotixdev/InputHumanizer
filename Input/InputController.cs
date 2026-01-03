@@ -244,9 +244,10 @@ namespace InputHumanizer.Input
 
         public async SyncTask<Vector2?> GetCursorPos(CancellationToken cancellationToken = default)
         {
+            Plugin.DebugLog("Getting cursor position");
+
             if (Plugin.GetBackgroundInputController() != null)
             {
-                Plugin.DebugLog("Clearing mouse position.");
                 return await Plugin.GetBackgroundInputController().GetForcedCursorPositionAsync();
             }
             else

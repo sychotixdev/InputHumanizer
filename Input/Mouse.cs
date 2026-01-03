@@ -29,43 +29,51 @@ namespace InputHumanizer.Input
             var windowRect = plugin.GameController.Window.GetWindowRectangleTimeCache;
             Vector2 windowOffset = windowRect.TopLeft;
 
-            // 1. Determine Start Position
-            Vector2 currentPosScreen = ExileCore2.Input.ForceMousePosition;
             Vector2 startPosClient;
-            Vector2 finalTarget;
+            Vector2 finalTargetClient;
 
             if (backgroundController != null)
             {
-                // First, if we have the background controller we're going to get the client's current position
-                var currentPosition = await backgroundController.GetForcedCursorPositionAsync();
+                // Get forced cursor position (already in CLIENT coordinates)
+                var currentForcedPos = await backgroundController.GetForcedCursorPositionAsync();
 
-                if (currentPosition.HasValue)
+                if (currentForcedPos.HasValue)
                 {
-                    currentPosScreen = currentPosition.Value;
+                    // Already in CLIENT coordinates - use directly
+                    startPosClient = currentForcedPos.Value;
+                    plugin.DebugLog($"MoveMouse [BG]: Using forced cursor at CLIENT: ({startPosClient.X}, {startPosClient.Y})");
+                }
+                else
+                {
+                    // No forced cursor yet - convert real cursor from SCREEN to CLIENT
+                    Vector2 realCursorScreen = ExileCore2.Input.ForceMousePosition;
+                    startPosClient = realCursorScreen - windowOffset;
+                    plugin.DebugLog($"MoveMouse [BG]: No forced cursor, using real cursor. SCREEN: {realCursorScreen} -> CLIENT: {startPosClient}");
                 }
 
-                finalTarget = targetPosition - windowOffset;
-                startPosClient = GetClampedWindowIntersection(currentPosScreen, finalTarget, windowRect);
+                // Convert target from SCREEN to CLIENT
+                finalTargetClient = targetPosition - windowOffset;
 
-                plugin.DebugLog($"MoveMouse [BG]: ScreenOffset: {windowOffset}, TargetScreen: {targetPosition} -> TargetClient: {finalTarget}, StartClient: {startPosClient}");
+                plugin.DebugLog($"MoveMouse [BG]: WindowOffset: {windowOffset}, TargetScreen: {targetPosition} -> TargetClient: {finalTargetClient}, StartClient: {startPosClient}");
             }
             else
             {
-                finalTarget = targetPosition;
-                startPosClient = currentPosScreen;
-                plugin.DebugLog($"MoveMouse [FG]: TargetScreen: {finalTarget}, StartScreen: {startPosClient}");
+                // Foreground mode - everything in SCREEN coordinates
+                startPosClient = ExileCore2.Input.ForceMousePosition;
+                finalTargetClient = targetPosition;
+                plugin.DebugLog($"MoveMouse [FG]: TargetScreen: {finalTargetClient}, StartScreen: {startPosClient}");
             }
 
             // Path Logic
-            float distance = Vector2.Distance(startPosClient, finalTarget);
+            float distance = Vector2.Distance(startPosClient, finalTargetClient);
             float normalizedDistance = NormalizeDistance(distance, maxInterpolationDistance);
             float interpolatedValue = Lerp(minInterpolationDelay, maxInterpolationDelay, normalizedDistance);
             TimeSpan mouseSpeed = TimeSpan.FromMilliseconds(interpolatedValue + Random.Shared.Next(25, 100));
 
-            // Generate Path
+            // Generate Path (now both start and target are in the same coordinate space)
             var movements = CursorMover.GenerateMovements(
                 new Point((int)startPosClient.X, (int)startPosClient.Y),
-                new Point((int)finalTarget.X, (int)finalTarget.Y),
+                new Point((int)finalTargetClient.X, (int)finalTargetClient.Y),
                 (int)mouseSpeed.TotalMilliseconds);
 
             if (backgroundController != null)
