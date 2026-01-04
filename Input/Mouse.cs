@@ -39,8 +39,7 @@ namespace InputHumanizer.Input
 
                 if (currentForcedPos.HasValue)
                 {
-                    // Already in CLIENT coordinates - use directly
-                    startPosClient = currentForcedPos.Value;
+                    startPosClient = currentForcedPos.Value - windowOffset;
                     plugin.DebugLog($"MoveMouse [BG]: Using forced cursor at CLIENT: ({startPosClient.X}, {startPosClient.Y})");
                 }
                 else

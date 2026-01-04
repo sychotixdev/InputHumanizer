@@ -124,7 +124,7 @@ namespace InputHumanizer.Input
             // Delays should now be handled just fine
             if (Settings.UseBackgroundInput && Plugin.GetBackgroundInputController() != null)
             {
-                await Plugin.GetBackgroundInputController().ClickAsync(button == MouseButtons.Right, coordinate, MouseModifiers.Ctrl);
+                await Plugin.GetBackgroundInputController().ClickAsync(button == MouseButtons.Right, coordinate, modifiers);
             }
             else
             {
