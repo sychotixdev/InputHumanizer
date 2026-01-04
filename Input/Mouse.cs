@@ -35,13 +35,12 @@ namespace InputHumanizer.Input
 
             if (backgroundController != null)
             {
-                // Get forced cursor position (already in CLIENT coordinates)
+                // Returns screen coordinates
                 var currentForcedPos = await backgroundController.GetForcedCursorPositionAsync();
 
                 if (currentForcedPos.HasValue)
                 {
-                    // Already in CLIENT coordinates - use directly
-                    startPosClient = currentForcedPos.Value;
+                    startPosClient = currentForcedPos.Value - windowOffset;
                     plugin.DebugLog($"MoveMouse [BG]: Using forced cursor at CLIENT: ({startPosClient.X}, {startPosClient.Y})");
                 }
                 else
