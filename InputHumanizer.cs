@@ -1,9 +1,9 @@
-﻿using ExileCore2;
-using ExileCore2.PoEMemory.MemoryObjects;
-using ExileCore2.Shared;
-using ExileCore2.Shared.Attributes;
-using ExileCore2.Shared.Interfaces;
-using ExileCore2.Shared.Nodes;
+﻿using ExileCore;
+using ExileCore.PoEMemory.MemoryObjects;
+using ExileCore.Shared;
+using ExileCore.Shared.Attributes;
+using ExileCore.Shared.Interfaces;
+using ExileCore.Shared.Nodes;
 using InputHumanizer.Input;
 using System;
 using System.Threading;
@@ -59,17 +59,6 @@ namespace InputHumanizer
             };
 
             return true;
-        }
-
-        public override void Tick()
-        {
-            base.Tick();
-
-            var backgroundInputController = GetBackgroundInputController();
-            if (backgroundInputController != null)
-            {
-                //_ = backgroundInputController.SendPingAsync();
-            }
         }
 
         public BackgroundInput GetBackgroundInputController()

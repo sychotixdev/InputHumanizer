@@ -1,4 +1,5 @@
-﻿using ExileCore2.Shared;
+﻿using ExileCore.Shared;
+using ExileCore.Shared.Helpers;
 using Kalon;
 using Kalon.Native.Structs;
 using System;
@@ -27,7 +28,7 @@ namespace InputHumanizer.Input
         {
             var backgroundController = plugin.GetBackgroundInputController();
             var windowRect = plugin.GameController.Window.GetWindowRectangleTimeCache;
-            Vector2 windowOffset = windowRect.TopLeft;
+            Vector2 windowOffset = windowRect.TopLeft.ToVector2Num();
 
             Vector2 startPosClient;
             Vector2 finalTargetClient;
@@ -46,7 +47,7 @@ namespace InputHumanizer.Input
                 else
                 {
                     // No forced cursor yet - convert real cursor from SCREEN to CLIENT
-                    Vector2 realCursorScreen = ExileCore2.Input.ForceMousePosition;
+                    Vector2 realCursorScreen = ExileCore.Input.ForceMousePosition.ToVector2Num();
                     startPosClient = realCursorScreen - windowOffset;
                     plugin.DebugLog($"MoveMouse [BG]: No forced cursor, using real cursor. SCREEN: {realCursorScreen} -> CLIENT: {startPosClient}");
                 }
@@ -59,7 +60,7 @@ namespace InputHumanizer.Input
             else
             {
                 // Foreground mode - everything in SCREEN coordinates
-                startPosClient = ExileCore2.Input.ForceMousePosition;
+                startPosClient = ExileCore.Input.ForceMousePosition.ToVector2Num();
                 finalTargetClient = targetPosition;
                 plugin.DebugLog($"MoveMouse [FG]: TargetScreen: {finalTargetClient}, StartScreen: {startPosClient}");
             }
@@ -124,7 +125,7 @@ namespace InputHumanizer.Input
                 {
                     foreach (var point in movement.Points)
                     {
-                        ExileCore2.Input.SetCursorPos(new Vector2(point.X, point.Y));
+                        ExileCore.Input.SetCursorPos(new Vector2(point.X, point.Y));
                     }
                     totalDelay = totalDelay.Add(movement.Delay);
                     if (stopwatch.Elapsed < totalDelay)
@@ -133,33 +134,6 @@ namespace InputHumanizer.Input
             }
 
             return true;
-        }
-
-        private static Vector2 GetClampedWindowIntersection(Vector2 currentScreen, Vector2 targetClient, RectangleF windowRect)
-        {
-            if (windowRect.Contains(currentScreen.X, currentScreen.Y))
-            {
-                return currentScreen - windowRect.TopLeft;
-            }
-
-            Vector2 currentClient = currentScreen - windowRect.TopLeft;
-            float xmin = 0, ymin = 0, xmax = windowRect.Width, ymax = windowRect.Height;
-            float t = 1.0f;
-
-            // Safety: Only calculate t if there is actual movement on that axis to avoid DivByZero
-            if (Math.Abs(targetClient.X - currentClient.X) > 0.01f)
-            {
-                if (currentClient.X < xmin) t = Math.Min(t, (xmin - currentClient.X) / (targetClient.X - currentClient.X));
-                if (currentClient.X > xmax) t = Math.Min(t, (xmax - currentClient.X) / (targetClient.X - currentClient.X));
-            }
-
-            if (Math.Abs(targetClient.Y - currentClient.Y) > 0.01f)
-            {
-                if (currentClient.Y < ymin) t = Math.Min(t, (ymin - currentClient.Y) / (targetClient.Y - currentClient.Y));
-                if (currentClient.Y > ymax) t = Math.Min(t, (ymax - currentClient.Y) / (targetClient.Y - currentClient.Y));
-            }
-
-            return currentClient + (targetClient - currentClient) * t;
         }
 
         // Credits: https://ben.land/post/2021/04/25/windmouse-human-mouse-movement/#the-code
@@ -224,7 +198,7 @@ namespace InputHumanizer.Input
 
             foreach (var position in positions)
             {
-                ExileCore2.Input.SetCursorPos(new Vector2(position.X, position.Y));
+                ExileCore.Input.SetCursorPos(new Vector2(position.X, position.Y));
 
                 int delay = random.Next(minWait, maxWait);
 

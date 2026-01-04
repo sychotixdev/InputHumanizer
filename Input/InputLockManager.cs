@@ -1,5 +1,5 @@
-﻿using ExileCore2.Shared;
-using ExileCore2.Shared.Interfaces;
+﻿using ExileCore.Shared;
+using ExileCore.Shared.Interfaces;
 using System;
 using System.Threading;
 using static InputHumanizer.InputHumanizer;

@@ -1,4 +1,4 @@
-﻿using ExileCore2.Shared;
+﻿using ExileCore.Shared;
 using Microsoft.VisualBasic.ApplicationServices;
 using System;
 using System.Collections.Generic;
@@ -47,7 +47,7 @@ namespace InputHumanizer.Input
             }
             else
             {
-                ExileCore2.Input.KeyDown(key);
+                ExileCore.Input.KeyDown(key);
             }
 
 
@@ -82,7 +82,7 @@ namespace InputHumanizer.Input
             }
             else
             {
-                ExileCore2.Input.KeyUp(key);
+                ExileCore.Input.KeyUp(key);
             }
 
             ButtonDelays.Remove(key);
@@ -146,7 +146,7 @@ namespace InputHumanizer.Input
                     await Task.Delay(GenerateDelay(), cancellationToken);
                 }
 
-                ExileCore2.Input.Click(button);
+                ExileCore.Input.Click(button);
 
                 if (pressedModifiers.Count > 0)
                 {
@@ -190,7 +190,7 @@ namespace InputHumanizer.Input
 
             Plugin.DebugLog("Vertical Scroll");
             // Delays should now be handled just fine
-            ExileCore2.Input.VerticalScroll(forward, numClicks);
+            ExileCore.Input.VerticalScroll(forward, numClicks);
 
             Plugin.DebugLog("Vertical Scroll Delay 2");
             // Do we want to sleep TWICE here?
@@ -220,7 +220,7 @@ namespace InputHumanizer.Input
         public async SyncTask<bool> MoveMouseWindMouseImpl(Vector2 coordinate, double gravityStrength, double windStrength, int minInterpolationDelay, int maxInterpolationDelay, double stepSize, double targetArea, CancellationToken cancellationToken = default)
         {
             Plugin.DebugLog("Mouse Move start");
-            var startPoint = ExileCore2.Input.ForceMousePosition;
+            var startPoint = ExileCore.Input.ForceMousePosition;
 
             return await Mouse.WindMouseImpl(Plugin, startPoint.X, startPoint.Y, coordinate.X, coordinate.Y, gravityStrength, windStrength, minInterpolationDelay, maxInterpolationDelay, stepSize, targetArea, cancellationToken);
         }
@@ -252,7 +252,7 @@ namespace InputHumanizer.Input
             }
             else
             {
-                var pos = ExileCore2.Input.ForceMousePosition;
+                var pos = ExileCore.Input.ForceMousePosition;
                 return new Vector2(pos.X, pos.Y);
             }
 
