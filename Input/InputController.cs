@@ -257,5 +257,16 @@ namespace InputHumanizer.Input
             }
 
         }
+
+        public async SyncTask<bool> ReleaseControl(CancellationToken cancellationToken = default)
+        {
+            if (Plugin.GetBackgroundInputController() != null)
+            {
+                Plugin.DebugLog("Releasing control.");
+                return await Plugin.GetBackgroundInputController().ReleaseControlAsync();
+            }
+
+            return true;
+        }
     }
 }

@@ -17,7 +17,8 @@ namespace InputHumanizer.Input
         Ping = 4,
         MouseClick = 5,
         ClearCursor = 6,
-        GetForcedCursor = 7
+        GetForcedCursor = 7,
+        ClientIdle = 8
     }
 
     public enum ResponseType : uint
@@ -27,7 +28,8 @@ namespace InputHumanizer.Input
         Pong = 3,
         MouseClickComplete = 4,
         CursorCleared = 5,
-        ForcedCursorPosition = 6
+        ForcedCursorPosition = 6,
+        ClientIdleAck = 7
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -371,6 +373,18 @@ namespace InputHumanizer.Input
             return new Vector2(x, y);
         }
 
+        public async Task<bool> ReleaseControlAsync(int timeoutMs = 3000)
+        {
+            using var ms = new MemoryStream();
+            using var w = new BinaryWriter(ms);
+
+            w.Write((uint)CommandType.ClientIdle);
+            w.Write(0u); // no payload
+
+            var response = await SendCommandAndWaitAsync(ms.ToArray(), timeoutMs);
+            return response.type == ResponseType.ClientIdleAck;
+        }
+
         private async Task<(ResponseType type, byte[]? payload)> SendCommandAndWaitAsync(
             byte[] commandBuffer,
             int timeoutMs)
@@ -446,6 +460,16 @@ namespace InputHumanizer.Input
 
         public void Dispose()
         {
+            try
+            {
+                if (IsConnected)
+                {
+                    // Best-effort cleanup; ignore failures
+                    ReleaseControlAsync(1000).GetAwaiter().GetResult();
+                }
+            }
+            catch { }
+
             _pipeClient?.Dispose();
             _responseLock?.Dispose();
         }
