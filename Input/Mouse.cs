@@ -34,7 +34,7 @@ namespace InputHumanizer.Input
 
             if (backgroundController != null)
             {
-                // Get forced cursor position (already in CLIENT coordinates)
+                // Get forced cursor position (SCREEN coordinates)
                 var currentForcedPos = await backgroundController.GetForcedCursorPositionAsync();
 
                 if (currentForcedPos.HasValue)
@@ -75,36 +75,36 @@ namespace InputHumanizer.Input
                 new Point((int)finalTargetClient.X, (int)finalTargetClient.Y),
                 (int)mouseSpeed.TotalMilliseconds);
 
-            if (backgroundController != null)
+            List<CursorPointWithDelay> processedPoints = new List<CursorPointWithDelay>();
+            double accumulatedDelay = 0;
+            var movementsList = movements.ToList();
+
+            foreach (var movement in movementsList)
             {
-                List<CursorPointWithDelay> processedPoints = new List<CursorPointWithDelay>();
-                double accumulatedDelay = 0;
-                var movementsList = movements.ToList();
+                if (movement.Points == null || !movement.Points.Any()) continue;
 
-                foreach (var movement in movementsList)
+                var pointsList = movement.Points.ToList();
+                double rawDelayPerPoint = movement.Delay.TotalMilliseconds / pointsList.Count;
+
+                for (int i = 0; i < pointsList.Count; i++)
                 {
-                    if (movement.Points == null || !movement.Points.Any()) continue;
+                    accumulatedDelay += rawDelayPerPoint;
+                    bool isLastPointOfEntirePath = (movement == movementsList.Last() && i == pointsList.Count - 1);
 
-                    var pointsList = movement.Points.ToList();
-                    double rawDelayPerPoint = movement.Delay.TotalMilliseconds / pointsList.Count;
-
-                    for (int i = 0; i < pointsList.Count; i++)
+                    if (accumulatedDelay >= 1.0 || isLastPointOfEntirePath)
                     {
-                        accumulatedDelay += rawDelayPerPoint;
-                        bool isLastPointOfEntirePath = (movement == movementsList.Last() && i == pointsList.Count - 1);
-
-                        if (accumulatedDelay >= 1.0 || isLastPointOfEntirePath)
-                        {
-                            processedPoints.Add(new CursorPointWithDelay(
-                                pointsList[i].X,
-                                pointsList[i].Y,
-                                (uint)Math.Floor(accumulatedDelay)
-                            ));
-                            accumulatedDelay -= Math.Floor(accumulatedDelay);
-                        }
+                        processedPoints.Add(new CursorPointWithDelay(
+                            pointsList[i].X,
+                            pointsList[i].Y,
+                            (uint)Math.Floor(accumulatedDelay)
+                        ));
+                        accumulatedDelay -= Math.Floor(accumulatedDelay);
                     }
                 }
+            }
 
+            if (backgroundController != null)
+            {
                 if (processedPoints.Any())
                 {
                     var first = processedPoints.First();
@@ -119,46 +119,23 @@ namespace InputHumanizer.Input
                 // Standard Foreground logic...
                 var stopwatch = Stopwatch.StartNew();
                 TimeSpan totalDelay = TimeSpan.Zero;
-                foreach (var movement in movements)
+
+                for(var i =0;i<processedPoints.Count;i++)
                 {
-                    foreach (var point in movement.Points)
-                    {
-                        ExileCore2.Input.SetCursorPos(new Vector2(point.X, point.Y));
-                    }
-                    totalDelay = totalDelay.Add(movement.Delay);
-                    if (stopwatch.Elapsed < totalDelay)
-                        await Task.Delay(totalDelay - stopwatch.Elapsed, cancellationToken);
+                    var point = processedPoints[i];
+                    // If HUD slept longer than our point delay, skip to the next in the delay.
+                    // If we are the final point, be sure we send it anyways.
+                    if (stopwatch.Elapsed > totalDelay && i < processedPoints.Count - 1)
+                        continue;
+
+                    ExileCore2.Input.SetCursorPos(new Vector2(point.X, point.Y));
+                    var delayMs = (int)point.DelayMs;
+                    await Task.Delay(delayMs, cancellationToken);
+                    totalDelay = totalDelay.Add(TimeSpan.FromMilliseconds(delayMs));
                 }
             }
 
             return true;
-        }
-
-        private static Vector2 GetClampedWindowIntersection(Vector2 currentScreen, Vector2 targetClient, RectangleF windowRect)
-        {
-            if (windowRect.Contains(currentScreen.X, currentScreen.Y))
-            {
-                return currentScreen - windowRect.TopLeft;
-            }
-
-            Vector2 currentClient = currentScreen - windowRect.TopLeft;
-            float xmin = 0, ymin = 0, xmax = windowRect.Width, ymax = windowRect.Height;
-            float t = 1.0f;
-
-            // Safety: Only calculate t if there is actual movement on that axis to avoid DivByZero
-            if (Math.Abs(targetClient.X - currentClient.X) > 0.01f)
-            {
-                if (currentClient.X < xmin) t = Math.Min(t, (xmin - currentClient.X) / (targetClient.X - currentClient.X));
-                if (currentClient.X > xmax) t = Math.Min(t, (xmax - currentClient.X) / (targetClient.X - currentClient.X));
-            }
-
-            if (Math.Abs(targetClient.Y - currentClient.Y) > 0.01f)
-            {
-                if (currentClient.Y < ymin) t = Math.Min(t, (ymin - currentClient.Y) / (targetClient.Y - currentClient.Y));
-                if (currentClient.Y > ymax) t = Math.Min(t, (ymax - currentClient.Y) / (targetClient.Y - currentClient.Y));
-            }
-
-            return currentClient + (targetClient - currentClient) * t;
         }
 
         // Credits: https://ben.land/post/2021/04/25/windmouse-human-mouse-movement/#the-code
@@ -171,11 +148,51 @@ namespace InputHumanizer.Input
                                       double gravity, double wind, int minWait,
                                       int maxWait, double maxStep, double targetArea, CancellationToken cancellationToken = default)
         {
+            var backgroundController = plugin.GetBackgroundInputController();
+            var windowRect = plugin.GameController.Window.GetWindowRectangleTimeCache;
+            Vector2 windowOffset = windowRect.TopLeft; // SCREEN coords of client (0,0)
+
+            // ---------------------------------------------------------------------
+            // Resolve START / DEST coordinates
+            // ---------------------------------------------------------------------
+
+            bool isBackground = backgroundController != null;
+
+            // These will be the coordinates used by the WindMouse algorithm
+            double curX, curY;
+            double targetX, targetY;
+
+            if (isBackground)
+            {
+                // ---- START: SCREEN → CLIENT
+                var forcedScreen = await backgroundController.GetForcedCursorPositionAsync();
+                Vector2 startScreen = forcedScreen ?? ExileCore2.Input.ForceMousePosition;
+
+                curX = startScreen.X - windowOffset.X;
+                curY = startScreen.Y - windowOffset.Y;
+
+                // ---- DEST: SCREEN → CLIENT
+                targetX = destX - windowOffset.X;
+                targetY = destY - windowOffset.Y;
+            }
+            else
+            {
+                // Foreground mode: everything stays in SCREEN space
+                curX = startX;
+                curY = startY;
+                targetX = destX;
+                targetY = destY;
+            }
+
+            // ---------------------------------------------------------------------
+            // WindMouse algorithm (coordinate-space agnostic)
+            // ---------------------------------------------------------------------
+
             double dist, veloX = 0, veloY = 0, windX = 0, windY = 0;
 
-            List<Point> positions = new List<Point>();
+            var points = new List<CursorPointWithDelay>();
 
-            while ((dist = Hypot(startX - destX, startY - destY)) >= 1)
+            while ((dist = Hypot(curX - targetX, curY - targetY)) >= 1)
             {
                 wind = Math.Min(wind, dist);
 
@@ -195,44 +212,69 @@ namespace InputHumanizer.Input
                         maxStep /= sqrt5;
                 }
 
-                veloX += windX + gravity * (destX - startX) / dist;
-                veloY += windY + gravity * (destY - startY) / dist;
+                veloX += windX + gravity * (targetX - curX) / dist;
+                veloY += windY + gravity * (targetY - curY) / dist;
 
                 double veloMag = Hypot(veloX, veloY);
-
                 if (veloMag > maxStep)
                 {
-                    double randomDist = maxStep / 2 + random.NextDouble() * maxStep / 2;
-                    veloX = (veloX / veloMag) * randomDist;
-                    veloY = (veloY / veloMag) * randomDist;
+                    double clipped = maxStep / 2 + random.NextDouble() * maxStep / 2;
+                    veloX = (veloX / veloMag) * clipped;
+                    veloY = (veloY / veloMag) * clipped;
                 }
 
-                startX += veloX;
-                startY += veloY;
+                curX += veloX;
+                curY += veloY;
 
-                int mx = (int)Math.Round(startX);
-                int my = (int)Math.Round(startY);
-
-                positions.Add(new Point(mx, my));
-            }
-
-            plugin.DebugLog("InputHumanizer: Total points for MouseMove = " + positions.Count);
-
-            var stopwatch = Stopwatch.StartNew();
-            TimeSpan totalDelay = TimeSpan.Zero;
-
-            foreach (var position in positions)
-            {
-                ExileCore2.Input.SetCursorPos(new Vector2(position.X, position.Y));
-
+                int x = (int)Math.Round(curX);
+                int y = (int)Math.Round(curY);
                 int delay = random.Next(minWait, maxWait);
 
-                totalDelay = totalDelay.Add(TimeSpan.FromMilliseconds(delay));
+                points.Add(new CursorPointWithDelay(x, y, (uint)delay));
+            }
 
-                if (stopwatch.Elapsed < totalDelay)
+            plugin.DebugLog($"WindMouse: Generated {points.Count} points (BG={isBackground})");
+
+            // ---------------------------------------------------------------------
+            // Dispatch
+            // ---------------------------------------------------------------------
+
+            if (isBackground)
+            {
+                // CLIENT coordinates → pipe
+                if (points.Count > 0)
                 {
-                    plugin.DebugLog("InputHumanizer: we actually ended up sleeping in MouseMove");
-                    await Task.Delay(totalDelay - stopwatch.Elapsed, cancellationToken);
+                    var first = points.First();
+                    var last = points.Last();
+                    plugin.DebugLog(
+                        $"WindMouse [BG]: FirstClient=({first.X},{first.Y}) LastClient=({last.X},{last.Y})");
+                }
+
+                await backgroundController.SetCursorPathAsync(points.ToArray(), 5000);
+            }
+            else
+            {
+                // SCREEN coordinates → SetCursorPos
+                var stopwatch = Stopwatch.StartNew();
+                TimeSpan totalDelay = TimeSpan.Zero;
+
+                for (int i = 0; i < points.Count; i++)
+                {
+                    var p = points[i];
+                    bool isLastPoint = (i == points.Count - 1);
+
+                    // Accumulate when this point was supposed to happen
+                    totalDelay += TimeSpan.FromMilliseconds(p.DelayMs);
+
+                    // If we are already past the scheduled time and this is not the final point, skip it
+                    if (stopwatch.Elapsed > totalDelay && !isLastPoint)
+                        continue;
+
+                    ExileCore2.Input.SetCursorPos(new Vector2(p.X, p.Y));
+
+                    // Sleep only if we're ahead of schedule
+                    if (stopwatch.Elapsed < totalDelay)
+                        await Task.Delay(totalDelay - stopwatch.Elapsed, cancellationToken);
                 }
             }
 
