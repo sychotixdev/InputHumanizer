@@ -1,5 +1,4 @@
-﻿using ExileCore2.Shared;
-using Microsoft.VisualBasic.ApplicationServices;
+﻿using Microsoft.VisualBasic.ApplicationServices;
 using System;
 using System.Collections.Generic;
 using System.Numerics;
@@ -7,6 +6,16 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using static InputHumanizer.InputHumanizer;
+
+#if POE1
+using Core = ExileCore;
+using Shared = ExileCore.Shared;
+
+#else
+using Core = ExileCore2;
+using Shared = ExileCore2.Shared;
+
+#endif
 
 namespace InputHumanizer.Input
 {
@@ -35,7 +44,7 @@ namespace InputHumanizer.Input
         private InputLockManager Manager { get; }
         private Dictionary<Keys, DateTime> ButtonDelays = new Dictionary<Keys, DateTime>();
 
-        public async SyncTask<bool> KeyDown(Keys key, CancellationToken cancellationToken = default)
+        public async Shared.SyncTask<bool> KeyDown(Keys key, CancellationToken cancellationToken = default)
         {
             await Task.Delay(GenerateDelay(), cancellationToken);
 
@@ -47,7 +56,7 @@ namespace InputHumanizer.Input
             }
             else
             {
-                ExileCore2.Input.KeyDown(key);
+                Core.Input.KeyDown(key);
             }
 
 
@@ -55,7 +64,7 @@ namespace InputHumanizer.Input
             return true;
         }
 
-        public async SyncTask<bool> KeyUp(Keys key, bool releaseImmediately = false, CancellationToken cancellationToken = default)
+        public async Shared.SyncTask<bool> KeyUp(Keys key, bool releaseImmediately = false, CancellationToken cancellationToken = default)
         {// If we were told to release immediately, skip this logic
             if (!releaseImmediately)
             {
@@ -82,7 +91,7 @@ namespace InputHumanizer.Input
             }
             else
             {
-                ExileCore2.Input.KeyUp(key);
+                Core.Input.KeyUp(key);
             }
 
             ButtonDelays.Remove(key);
@@ -90,22 +99,22 @@ namespace InputHumanizer.Input
             return true;
         }
 
-        public async SyncTask<bool> Click(CancellationToken cancellationToken = default)
+        public async Shared.SyncTask<bool> Click(CancellationToken cancellationToken = default)
         {
             return await Click(MouseButtons.Left, null, cancellationToken);
         }
 
-        public async SyncTask<bool> Click(MouseButtons button, CancellationToken cancellationToken = default)
+        public async Shared.SyncTask<bool> Click(MouseButtons button, CancellationToken cancellationToken = default)
         {
             return await Click(button, null, cancellationToken);
         }
 
-        public async SyncTask<bool> Click(MouseButtons button, Vector2? coordinate, CancellationToken cancellationToken = default)
+        public async Shared.SyncTask<bool> Click(MouseButtons button, Vector2? coordinate, CancellationToken cancellationToken = default)
         {
             return await ClickWithModifiers(button, coordinate, MouseModifiers.None, cancellationToken);
         }
 
-        public async SyncTask<bool> ClickWithModifiers(MouseButtons button, Vector2? coordinate, MouseModifiers modifiers, CancellationToken cancellationToken = default)
+        public async Shared.SyncTask<bool> ClickWithModifiers(MouseButtons button, Vector2? coordinate, MouseModifiers modifiers, CancellationToken cancellationToken = default)
         {
             // Only if a position is specified do we move the mouse
             if (coordinate != null)
@@ -146,7 +155,7 @@ namespace InputHumanizer.Input
                     await Task.Delay(GenerateDelay(), cancellationToken);
                 }
 
-                ExileCore2.Input.Click(button);
+                Core.Input.Click(button);
 
                 if (pressedModifiers.Count > 0)
                 {
@@ -170,12 +179,12 @@ namespace InputHumanizer.Input
             return true;
         }
 
-        public async SyncTask<bool> VerticalScroll(bool forward, int numClicks, CancellationToken cancellationToken = default)
+        public async Shared.SyncTask<bool> VerticalScroll(bool forward, int numClicks, CancellationToken cancellationToken = default)
         {
             return await VerticalScroll(forward, numClicks, null, cancellationToken);
         }
 
-        public async SyncTask<bool> VerticalScroll(bool forward, int numClicks, Vector2? coordinate, CancellationToken cancellationToken = default)
+        public async Shared.SyncTask<bool> VerticalScroll(bool forward, int numClicks, Vector2? coordinate, CancellationToken cancellationToken = default)
         {
             // Only if a position is specified do we move the mouse
             if (coordinate != null)
@@ -190,7 +199,7 @@ namespace InputHumanizer.Input
 
             Plugin.DebugLog("Vertical Scroll");
             // Delays should now be handled just fine
-            ExileCore2.Input.VerticalScroll(forward, numClicks);
+            Core.Input.VerticalScroll(forward, numClicks);
 
             Plugin.DebugLog("Vertical Scroll Delay 2");
             // Do we want to sleep TWICE here?
@@ -199,7 +208,7 @@ namespace InputHumanizer.Input
             return true;
         }
 
-        public async SyncTask<bool> MoveMouse(Vector2 coordinate, CancellationToken cancellationToken = default)
+        public async Shared.SyncTask<bool> MoveMouse(Vector2 coordinate, CancellationToken cancellationToken = default)
         {
             if (Settings.UseWindMouse)
             {
@@ -211,16 +220,16 @@ namespace InputHumanizer.Input
             }
         }
 
-        public async SyncTask<bool> MoveMouse(Vector2 coordinate, int maxInterpolationDistance, int minInterpolationDelay, int maxInterpolationDelay, CancellationToken cancellationToken = default)
+        public async Shared.SyncTask<bool> MoveMouse(Vector2 coordinate, int maxInterpolationDistance, int minInterpolationDelay, int maxInterpolationDelay, CancellationToken cancellationToken = default)
         {
             Plugin.DebugLog("Mouse Move start");
             return await Mouse.MoveMouse(Plugin, coordinate, maxInterpolationDistance, minInterpolationDelay, maxInterpolationDelay, cancellationToken);
         }
 
-        public async SyncTask<bool> MoveMouseWindMouseImpl(Vector2 coordinate, double gravityStrength, double windStrength, int minInterpolationDelay, int maxInterpolationDelay, double stepSize, double targetArea, CancellationToken cancellationToken = default)
+        public async Shared.SyncTask<bool> MoveMouseWindMouseImpl(Vector2 coordinate, double gravityStrength, double windStrength, int minInterpolationDelay, int maxInterpolationDelay, double stepSize, double targetArea, CancellationToken cancellationToken = default)
         {
             Plugin.DebugLog("Mouse Move start");
-            var startPoint = ExileCore2.Input.ForceMousePosition;
+            var startPoint = Core.Input.ForceMousePosition;
 
             return await Mouse.WindMouseImpl(Plugin, startPoint.X, startPoint.Y, coordinate.X, coordinate.Y, gravityStrength, windStrength, minInterpolationDelay, maxInterpolationDelay, stepSize, targetArea, cancellationToken);
         }
@@ -230,7 +239,7 @@ namespace InputHumanizer.Input
             return Delay.GetDelay(Settings.MinimumDelay, Settings.MaximumDelay, Settings.DelayMean, Settings.DelayStandardDeviation);
         }
 
-        public async SyncTask<bool> ClearMousePosition(CancellationToken cancellationToken = default)
+        public async Shared.SyncTask<bool> ClearMousePosition(CancellationToken cancellationToken = default)
         {
             if (Plugin.GetBackgroundInputController() != null)
             {
@@ -242,7 +251,7 @@ namespace InputHumanizer.Input
         }
 
 
-        public async SyncTask<Vector2?> GetCursorPos(CancellationToken cancellationToken = default)
+        public async Shared.SyncTask<Vector2?> GetCursorPos(CancellationToken cancellationToken = default)
         {
             Plugin.DebugLog("Getting cursor position");
 
@@ -252,13 +261,13 @@ namespace InputHumanizer.Input
             }
             else
             {
-                var pos = ExileCore2.Input.ForceMousePosition;
+                var pos = Core.Input.ForceMousePosition;
                 return new Vector2(pos.X, pos.Y);
             }
 
         }
 
-        public async SyncTask<bool> ReleaseControl(CancellationToken cancellationToken = default)
+        public async Shared.SyncTask<bool> ReleaseControl(CancellationToken cancellationToken = default)
         {
             if (Plugin.GetBackgroundInputController() != null)
             {

@@ -1,5 +1,4 @@
-﻿using ExileCore2.Shared;
-using Kalon;
+﻿using Kalon;
 using Kalon.Native.Structs;
 using System;
 using System.Collections.Generic;
@@ -8,6 +7,18 @@ using System.Linq;
 using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
+using TradeMonitor.Utilities;
+
+
+#if POE1
+using Core = ExileCore;
+using Shared = ExileCore.Shared;
+
+#else
+using Core = ExileCore2;
+using Shared = ExileCore2.Shared;
+
+#endif
 
 namespace InputHumanizer.Input
 {
@@ -23,11 +34,11 @@ namespace InputHumanizer.Input
             return (1 - interpolationFactor) * startValue + interpolationFactor * endValue;
         }
 
-        public static async SyncTask<bool> MoveMouse(InputHumanizer plugin, Vector2 targetPosition, int maxInterpolationDistance = 700, int minInterpolationDelay = 0, int maxInterpolationDelay = 300, CancellationToken cancellationToken = default)
+        public static async Shared.SyncTask<bool> MoveMouse(InputHumanizer plugin, Vector2 targetPosition, int maxInterpolationDistance = 700, int minInterpolationDelay = 0, int maxInterpolationDelay = 300, CancellationToken cancellationToken = default)
         {
             var backgroundController = plugin.GetBackgroundInputController();
             var windowRect = plugin.GameController.Window.GetWindowRectangleTimeCache;
-            Vector2 windowOffset = windowRect.TopLeft;
+            Vector2 windowOffset = windowRect.TopLeft.ToStandardVector2();
 
             Vector2 startPosClient;
             Vector2 finalTargetClient;
@@ -45,7 +56,7 @@ namespace InputHumanizer.Input
                 else
                 {
                     // No forced cursor yet - convert real cursor from SCREEN to CLIENT
-                    Vector2 realCursorScreen = ExileCore2.Input.ForceMousePosition;
+                    Vector2 realCursorScreen = Core.Input.ForceMousePosition.ToStandardVector2();
                     startPosClient = realCursorScreen - windowOffset;
                     plugin.DebugLog($"MoveMouse [BG]: No forced cursor, using real cursor. SCREEN: {realCursorScreen} -> CLIENT: {startPosClient}");
                 }
@@ -58,7 +69,7 @@ namespace InputHumanizer.Input
             else
             {
                 // Foreground mode - everything in SCREEN coordinates
-                startPosClient = ExileCore2.Input.ForceMousePosition;
+                startPosClient = Core.Input.ForceMousePosition.ToStandardVector2();
                 finalTargetClient = targetPosition;
                 plugin.DebugLog($"MoveMouse [FG]: TargetScreen: {finalTargetClient}, StartScreen: {startPosClient}");
             }
@@ -128,7 +139,7 @@ namespace InputHumanizer.Input
                     if (stopwatch.Elapsed > totalDelay && i < processedPoints.Count - 1)
                         continue;
 
-                    ExileCore2.Input.SetCursorPos(new Vector2(point.X, point.Y));
+                    Core.Input.SetCursorPos(new Vector2(point.X, point.Y));
                     var delayMs = (int)point.DelayMs;
                     await Task.Delay(delayMs, cancellationToken);
                     totalDelay = totalDelay.Add(TimeSpan.FromMilliseconds(delayMs));
@@ -144,13 +155,13 @@ namespace InputHumanizer.Input
         private static readonly double sqrt5 = Math.Sqrt(5);
 
 
-        public static async SyncTask<bool> WindMouseImpl(InputHumanizer plugin, double startX, double startY, double destX, double destY,
+        public static async Shared.SyncTask<bool> WindMouseImpl(InputHumanizer plugin, double startX, double startY, double destX, double destY,
                                       double gravity, double wind, int minWait,
                                       int maxWait, double maxStep, double targetArea, CancellationToken cancellationToken = default)
         {
             var backgroundController = plugin.GetBackgroundInputController();
             var windowRect = plugin.GameController.Window.GetWindowRectangleTimeCache;
-            Vector2 windowOffset = windowRect.TopLeft; // SCREEN coords of client (0,0)
+            Vector2 windowOffset = windowRect.TopLeft.ToStandardVector2(); // SCREEN coords of client (0,0)
 
             // ---------------------------------------------------------------------
             // Resolve START / DEST coordinates
@@ -166,7 +177,7 @@ namespace InputHumanizer.Input
             {
                 // ---- START: SCREEN → CLIENT
                 var forcedScreen = await backgroundController.GetForcedCursorPositionAsync();
-                Vector2 startScreen = forcedScreen ?? ExileCore2.Input.ForceMousePosition;
+                Vector2 startScreen = forcedScreen ?? Core.Input.ForceMousePosition.ToStandardVector2();
 
                 curX = startScreen.X - windowOffset.X;
                 curY = startScreen.Y - windowOffset.Y;
@@ -270,7 +281,7 @@ namespace InputHumanizer.Input
                     if (stopwatch.Elapsed > totalDelay && !isLastPoint)
                         continue;
 
-                    ExileCore2.Input.SetCursorPos(new Vector2(p.X, p.Y));
+                    Core.Input.SetCursorPos(new Vector2(p.X, p.Y));
 
                     // Sleep only if we're ahead of schedule
                     if (stopwatch.Elapsed < totalDelay)

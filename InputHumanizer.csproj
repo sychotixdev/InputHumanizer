@@ -1,34 +1,61 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <EnableDynamicLoading>true</EnableDynamicLoading>
-    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
-    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <UseWindowsForms>true</UseWindowsForms>
-    <LangVersion>latest</LangVersion>
-    <TargetFramework>net8.0-windows</TargetFramework>
-    <OutputType>Library</OutputType>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="SharpDX.Mathematics" Version="4.2.0" />
-  </ItemGroup>
-  <ItemGroup Condition="'$(SolutionName)' == 'ExileApi'">
-    <ProjectReference Include="..\..\..\Core\Core.csproj" />
-    <ProjectReference Include="..\InputHumanizerLib\InputHumanizerLib.csproj" />
-    <Reference Include="Kalon">
-    </Reference>
-  </ItemGroup>
-  <ItemGroup Condition="'$(SolutionName)' != 'ExileApi'">
-    <Reference Include="ExileCore2">
-      <HintPath>$(exileCore2Package)\ExileCore2.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-	  <Reference Include="InputHumanizerLib">
-	  <HintPath>$(exileCore2Package)\InputHumanizerLib.dll</HintPath>
-	  <Private>False</Private>
 
-	  </Reference>
-    <Reference Include="Kalon">
-    </Reference>
-  </ItemGroup>
+	<!-- Core project settings -->
+	<PropertyGroup>
+		<TargetFramework>net8.0-windows</TargetFramework>
+		<OutputType>Library</OutputType>
+
+		<EnableDynamicLoading>true</EnableDynamicLoading>
+		<AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+		<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+		<UseWindowsForms>true</UseWindowsForms>
+		<LangVersion>latest</LangVersion>
+
+		<!-- Default -->
+		<PoeVersion>poe1</PoeVersion>
+	</PropertyGroup>
+
+	<!-- Compile-time symbols and package root -->
+	<PropertyGroup Condition="'$(PoeVersion)' == 'poe1'">
+		<DefineConstants>$(DefineConstants);POE1</DefineConstants>
+		<CorePackage>$(exapiPackage)</CorePackage>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(PoeVersion)' == 'poe2'">
+		<DefineConstants>$(DefineConstants);POE2</DefineConstants>
+		<CorePackage>$(exilecore2Package)</CorePackage>
+	</PropertyGroup>
+
+	<!-- NuGet dependencies -->
+	<ItemGroup>
+		<PackageReference Include="SharpDX.Mathematics" Version="4.2.0" />
+	</ItemGroup>
+
+	<!-- PoE1 references (project-based) -->
+	<ItemGroup Condition="'$(PoeVersion)' == 'poe1'">
+		<Reference Include="ExileCore">
+			<HintPath>$(CorePackage)\ExileCore.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="InputHumanizerLib">
+			<HintPath>$(CorePackage)\InputHumanizerLib.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="Kalon" />
+	</ItemGroup>
+
+	<!-- PoE2 references (binary-based) -->
+	<ItemGroup Condition="'$(PoeVersion)' == 'poe2'">
+		<Reference Include="ExileCore2">
+			<HintPath>$(CorePackage)\ExileCore2.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+
+		<Reference Include="InputHumanizerLib">
+			<HintPath>$(CorePackage)\InputHumanizerLib.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="Kalon" />
+	</ItemGroup>
 
 </Project>
