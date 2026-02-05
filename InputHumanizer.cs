@@ -67,6 +67,8 @@ namespace InputHumanizer
                     {
                         BackgroundInput.ConnectAsync().Wait();
                     }
+
+                    LogMessage(("InputHumanizer - Background Input Controller connected: " + BackgroundInput.IsConnected));
                 }
             };
 

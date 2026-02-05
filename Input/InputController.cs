@@ -44,6 +44,11 @@ namespace InputHumanizer.Input
         private InputLockManager Manager { get; }
         private Dictionary<Keys, DateTime> ButtonDelays = new Dictionary<Keys, DateTime>();
 
+        int minDelayOverride = -1;
+        int maxDelayOverride = -1;
+        int meanDelayOverride = -1;
+        int standardDeviationDelayOverride = -1;
+
         public async Shared.SyncTask<bool> KeyDown(Keys key, CancellationToken cancellationToken = default)
         {
             await Task.Delay(GenerateDelay(), cancellationToken);
@@ -236,7 +241,12 @@ namespace InputHumanizer.Input
 
         public int GenerateDelay()
         {
-            return Delay.GetDelay(Settings.MinimumDelay, Settings.MaximumDelay, Settings.DelayMean, Settings.DelayStandardDeviation);
+            var minDelay = minDelayOverride != -1 ? minDelayOverride : Settings.MinimumDelay;
+            var maxDelay = maxDelayOverride != -1 ? maxDelayOverride : Settings.MaximumDelay;
+            var mean = meanDelayOverride != -1 ? meanDelayOverride : Settings.DelayMean;
+            var standardDeviation = standardDeviationDelayOverride != -1 ? standardDeviationDelayOverride : Settings.DelayStandardDeviation;
+
+            return Delay.GetDelay(minDelay, maxDelay, mean, standardDeviation);
         }
 
         public async Shared.SyncTask<bool> ClearMousePosition(CancellationToken cancellationToken = default)
@@ -276,6 +286,14 @@ namespace InputHumanizer.Input
             }
 
             return true;
+        }
+
+        public void SetDelayOverrides(int minDelay = -1, int maxDelay = -1, int mean = -1, int standardDeviation = -1)
+        {
+            minDelayOverride = minDelay;
+            maxDelayOverride = maxDelay;
+            meanDelayOverride = mean;
+            standardDeviationDelayOverride = standardDeviation;
         }
     }
 }
