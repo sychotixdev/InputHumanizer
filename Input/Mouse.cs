@@ -78,7 +78,7 @@ namespace InputHumanizer.Input
             float distance = Vector2.Distance(startPosClient, finalTargetClient);
             float normalizedDistance = NormalizeDistance(distance, maxInterpolationDistance);
             float interpolatedValue = Lerp(minInterpolationDelay, maxInterpolationDelay, normalizedDistance);
-            TimeSpan mouseSpeed = TimeSpan.FromMilliseconds(interpolatedValue + Random.Shared.Next(25, 100));
+            TimeSpan mouseSpeed = TimeSpan.FromMilliseconds(interpolatedValue);
 
             // Generate Path (now both start and target are in the same coordinate space)
             var movements = CursorMover.GenerateMovements(

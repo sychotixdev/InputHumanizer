@@ -30,11 +30,13 @@ namespace InputHumanizer.Input
 
         ~InputController()
         {
+            _ = ReleaseControl();
             Manager.ReleaseController();
         }
 
         public void Dispose()
         {
+            _ = ReleaseControl();
             GC.SuppressFinalize(this);
             Manager.ReleaseController();
         }
@@ -204,7 +206,15 @@ namespace InputHumanizer.Input
 
             Plugin.DebugLog("Vertical Scroll");
             // Delays should now be handled just fine
-            Core.Input.VerticalScroll(forward, numClicks);
+            if (Plugin.GetBackgroundInputController() != null)
+            {
+                var scrollAmount = (forward ? numClicks : -numClicks) * 120;
+                await Plugin.GetBackgroundInputController().MouseWheelAsync(scrollAmount);
+            }
+            else
+            {
+                Core.Input.VerticalScroll(forward, numClicks);
+            }
 
             Plugin.DebugLog("Vertical Scroll Delay 2");
             // Do we want to sleep TWICE here?

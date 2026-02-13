@@ -17,7 +17,8 @@ namespace InputHumanizer.Input
         MouseClick = 5,
         ClearCursor = 6,
         GetForcedCursor = 7,
-        ClientIdle = 8
+        ClientIdle = 8,
+        MouseWheel = 9
     }
 
     public enum ResponseType : uint
@@ -28,7 +29,8 @@ namespace InputHumanizer.Input
         MouseClickComplete = 4,
         CursorCleared = 5,
         ForcedCursorPosition = 6,
-        ClientIdleAck = 7
+        ClientIdleAck = 7,
+        MouseWheelComplete = 8
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -97,7 +99,12 @@ namespace InputHumanizer.Input
         public int Y;
     }
 
-
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    public struct MouseWheelCommand
+    {
+        public int Delta;        // Positive = scroll up, negative = scroll down
+        public byte Modifiers;   // MouseModifiers mask (CTRL, SHIFT, ALT)
+    }
 
     public class BackgroundInput : IDisposable
     {
@@ -382,6 +389,20 @@ namespace InputHumanizer.Input
 
             var response = await SendCommandAndWaitAsync(ms.ToArray(), timeoutMs);
             return response.type == ResponseType.ClientIdleAck;
+        }
+
+        public async Task<bool> MouseWheelAsync(int delta, MouseModifiers modifiers = MouseModifiers.None, int timeoutMs = 3000)
+        {
+            using var ms = new MemoryStream();
+            using var w = new BinaryWriter(ms);
+
+            w.Write((uint)CommandType.MouseWheel);
+            w.Write((uint)(sizeof(int) + sizeof(byte))); // dataSize: 4 bytes for delta + 1 byte for modifiers
+            w.Write(delta);
+            w.Write((byte)modifiers);
+
+            var response = await SendCommandAndWaitAsync(ms.ToArray(), timeoutMs);
+            return response.type == ResponseType.MouseWheelComplete;
         }
 
         private async Task<(ResponseType type, byte[]? payload)> SendCommandAndWaitAsync(
