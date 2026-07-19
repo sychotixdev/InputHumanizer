@@ -30,15 +30,51 @@ namespace InputHumanizer.Input
 
         ~InputController()
         {
-            _ = ReleaseControl();
+            // No pipe I/O from the finalizer thread - just make sure the lock can't
+            // leak if a consumer never disposed us. The hook's own inactivity timeout
+            // handles handing manual control back in that pathological case.
             Manager.ReleaseController();
         }
 
         public void Dispose()
         {
-            _ = ReleaseControl();
+            // NOTE: the old `_ = ReleaseControl();` here was a no-op - SyncTasks are
+            // cooperatively pumped, so a discarded SyncTask never executes its body and
+            // the ClientIdle pipe command was never sent. Go through the plain-Task
+            // pipe API synchronously instead (same pattern as BackgroundInput.Dispose),
+            // and do it BEFORE releasing the semaphore so the next acquirer can't race
+            // an in-flight release.
+            ReleaseControlSync();
             GC.SuppressFinalize(this);
             Manager.ReleaseController();
+        }
+
+        // True once a ClientIdle has been successfully delivered (or there was no
+        // background pipe to deliver it to), so ReleaseControl() followed by Dispose()
+        // doesn't send it twice.
+        private bool _released;
+
+        private void ReleaseControlSync()
+        {
+            if (_released)
+                return;
+
+            try
+            {
+                var background = Plugin.GetBackgroundInputController();
+                if (background != null)
+                {
+                    Plugin.DebugLog("Releasing control (sync, from Dispose).");
+                    background.ReleaseControlAsync(1000).GetAwaiter().GetResult();
+                }
+
+                _released = true;
+            }
+            catch
+            {
+                // Best-effort: a dead pipe still gets cleaned up by the hook's
+                // inactivity timeout.
+            }
         }
 
         private InputHumanizer Plugin { get; }
@@ -292,9 +328,13 @@ namespace InputHumanizer.Input
             if (Plugin.GetBackgroundInputController() != null)
             {
                 Plugin.DebugLog("Releasing control.");
-                return await Plugin.GetBackgroundInputController().ReleaseControlAsync();
+                var ok = await Plugin.GetBackgroundInputController().ReleaseControlAsync();
+                if (ok)
+                    _released = true; // Dispose() can skip its duplicate ClientIdle.
+                return ok;
             }
 
+            _released = true;
             return true;
         }
 
