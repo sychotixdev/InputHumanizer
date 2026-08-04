@@ -1,17 +1,38 @@
-﻿using ExileCore;
-using ExileCore.PoEMemory.MemoryObjects;
-using ExileCore.Shared;
-using ExileCore.Shared.Attributes;
-using ExileCore.Shared.Interfaces;
-using ExileCore.Shared.Nodes;
-using InputHumanizer.Input;
+﻿using InputHumanizer.Input;
 using System;
 using static InputHumanizer.InputHumanizer;
 
+
+#if POE1
+using Core = ExileCore;
+using Components = ExileCore.PoEMemory.Components;
+using Elements = ExileCore.PoEMemory.Elements;
+using MemoryObjects = ExileCore.PoEMemory.MemoryObjects;
+using Shared = ExileCore.Shared;
+using SharedEnums = ExileCore.Shared.Enums;
+using Attributes = ExileCore.Shared.Attributes;
+using Interfaces = ExileCore.Shared.Interfaces;
+using Nodes = ExileCore.Shared.Nodes;
+
+#else
+using Core = ExileCore2;
+using Shared = ExileCore2.Shared;
+using Attributes = ExileCore2.Shared.Attributes;
+using Interfaces = ExileCore2.Shared.Interfaces;
+using Nodes = ExileCore2.Shared.Nodes;
+#endif
+
 namespace InputHumanizer
 {
-    public class InputHumanizer : BaseSettingsPlugin<InputHumanizerSettings>
+    public class InputHumanizer : Core.BaseSettingsPlugin<InputHumanizerSettings>
     {
+        private BackgroundInput BackgroundInput = null;
+
+        public InputHumanizer()
+        {
+            BackgroundInput = new BackgroundInput(this);
+        }
+
         public override bool Initialise()
         {
             GameController.PluginBridge.SaveMethod("InputHumanizer.TryGetInputController", (string requestingPlugin) =>
@@ -24,16 +45,70 @@ namespace InputHumanizer
                 return null;
             });
 
-
             GameController.PluginBridge.SaveMethod("InputHumanizer.GetInputController", (string requestingPlugin, TimeSpan waitTime) =>
             {
                 return GetInputController(requestingPlugin, waitTime);
             });
 
+            if (!BackgroundInput.IsConnected && Settings.UseBackgroundInput.Value == true)
+            {
+                // If we are not connected and using background input, try to connect now
+                BackgroundInput.ConnectAsync().Wait();
+                LogMessage(("InputHumanizer - Background Input Controller connected: " + BackgroundInput.IsConnected));
+            }
+
+            Settings.UseBackgroundInput.OnValueChanged += (sender, e) =>
+            {
+                // If it is being enabled and we aren't connected... try to connect
+                if (e == true)
+                {
+                    // Try to connect
+                    if (!BackgroundInput.IsConnected)
+                    {
+                        BackgroundInput.ConnectAsync().Wait();
+                    }
+
+                    LogMessage(("InputHumanizer - Background Input Controller connected: " + BackgroundInput.IsConnected));
+                }
+            };
+
             return true;
         }
+#if POE1
+        public override Core.Job Tick()
+        {
+            TickLogic();
+            return base.Tick();
+        }
 
-        public async SyncTask<IInputController> GetInputController(string requestingPlugin, TimeSpan waitTime)
+#else
+    public override void Tick()
+    {
+        base.Tick();
+        TickLogic();
+    }
+
+#endif
+
+        private void TickLogic()
+        {
+            var backgroundInputController = GetBackgroundInputController();
+            if (backgroundInputController != null)
+            {
+                //_ = backgroundInputController.SendPingAsync();
+            }
+        }
+
+        public BackgroundInput GetBackgroundInputController()
+        {
+            if (Settings.UseBackgroundInput.Value == true)
+            {
+                return BackgroundInput;
+            }
+            return null;
+        }
+
+        public async Shared.SyncTask<IInputController> GetInputController(string requestingPlugin, TimeSpan waitTime)
         {
             IInputController controller = await InputLockManager.Instance.GetInputControllerLock(requestingPlugin, this, Settings, waitTime);
             if (controller == null)
@@ -72,57 +147,60 @@ namespace InputHumanizer
             }
         }
 
-        public class InputHumanizerSettings : ISettings
+        public class InputHumanizerSettings : Interfaces.ISettings
         {
-            [Menu("Minimum Interpolation Delay", "Minimum Delay in Milliseconds")]
-            public RangeNode<int> MinimumInterpolationDelay { get; set; } = new(0, 0, 1000);
+            [Attributes.Menu("Use Background Input", "Enables Background Input")]
+            public Nodes.ToggleNode UseBackgroundInput { get; set; } = new Nodes.ToggleNode(false);
 
-            [Menu("Maximum Interpolation Delay", "Maximum Delay in Milliseconds")]
-            public RangeNode<int> MaximumInterpolationDelay { get; set; } = new(1000, 0, 1000);
+            [Attributes.Menu("Minimum Interpolation Delay", "Minimum Delay in Milliseconds")]
+            public Nodes.RangeNode<int> MinimumInterpolationDelay { get; set; } = new(0, 0, 1000);
 
-            [Menu("Maximum Interpolation Distance")]
-            public RangeNode<int> MaximumInterpolationDistance { get; set; } = new(2560, 0, 2560);
+            [Attributes.Menu("Maximum Interpolation Delay", "Maximum Delay in Milliseconds")]
+            public Nodes.RangeNode<int> MaximumInterpolationDelay { get; set; } = new(1000, 0, 1000);
 
-            [Menu("Delay Mean", "Mean of the Gaussian Distribution in Milliseconds")]
-            public RangeNode<int> DelayMean { get; set; } = new(100, 0, 1000);
+            [Attributes.Menu("Maximum Interpolation Distance")]
+            public Nodes.RangeNode<int> MaximumInterpolationDistance { get; set; } = new(2560, 0, 2560);
 
-            [Menu("Delay Standard Deviation", "Standard Deviation of the Gaussian Distribution in Milliseconds")]
-            public RangeNode<int> DelayStandardDeviation { get; set; } = new(50, 0, 1000);
+            [Attributes.Menu("Delay Mean", "Mean of the Gaussian Distribution in Milliseconds")]
+            public Nodes.RangeNode<int> DelayMean { get; set; } = new(100, 0, 1000);
 
-            [Menu("Minimum Delay", "Minimum Delay in Milliseconds")]
-            public RangeNode<int> MinimumDelay { get; set; } = new(50, 0, 1000);
+            [Attributes.Menu("Delay Standard Deviation", "Standard Deviation of the Gaussian Distribution in Milliseconds")]
+            public Nodes.RangeNode<int> DelayStandardDeviation { get; set; } = new(50, 0, 1000);
 
-            [Menu("Maximum Delay", "Maximum Delay in Milliseconds")]
-            public RangeNode<int> MaximumDelay { get; set; } = new(150, 0, 1000);
+            [Attributes.Menu("Minimum Delay", "Minimum Delay in Milliseconds")]
+            public Nodes.RangeNode<int> MinimumDelay { get; set; } = new(50, 0, 1000);
+
+            [Attributes.Menu("Maximum Delay", "Maximum Delay in Milliseconds")]
+            public Nodes.RangeNode<int> MaximumDelay { get; set; } = new(150, 0, 1000);
 
 
-            [Menu("Use Wind Mouse", "Enables Wind Mouse Algorithm")]
+            [Attributes.Menu("Use Wind Mouse", "Enables Wind Mouse Algorithm")]
 
-            public ToggleNode UseWindMouse { get; set; } = new ToggleNode(false);
+            public Nodes.ToggleNode UseWindMouse { get; set; } = new Nodes.ToggleNode(false);
 
-            [Menu("Wind Strength", "Wind Mouse magnitude of the wind force fluctuations")]
+            [Attributes.Menu("Wind Strength", "Wind Mouse magnitude of the wind force fluctuations")]
 
-            public RangeNode<float> WindStrength { get; set; } = new RangeNode<float>(2.0f, 0.0f, 10.0f);
-            [Menu("Gravity Strength", "Wind Mouse magnitude of the gravitational fornce")]
+            public Nodes.RangeNode<float> WindStrength { get; set; } = new Nodes.RangeNode<float>(2.0f, 0.0f, 10.0f);
+            [Attributes.Menu("Gravity Strength", "Wind Mouse magnitude of the gravitational fornce")]
 
-            public RangeNode<float> GravityStrength { get; set; } = new RangeNode<float>(9.0f, 0.0f, 15.0f);
+            public Nodes.RangeNode<float> GravityStrength { get; set; } = new Nodes.RangeNode<float>(9.0f, 0.0f, 15.0f);
 
-            [Menu("Step size", "Wind Mouse maximum step size (velocity clip threshold)")]
+            [Attributes.Menu("Step size", "Wind Mouse maximum step size (velocity clip threshold)")]
 
-            public RangeNode<float> StepSize { get; set; } = new RangeNode<float>(10.0f, 0.0f, 30.0f);
+            public Nodes.RangeNode<float> StepSize { get; set; } = new Nodes.RangeNode<float>(10.0f, 0.0f, 30.0f);
 
-            [Menu("Target Area", "Wind Mouse distance where wind behavior changes from random to damped")]
+            [Attributes.Menu("Target Area", "Wind Mouse distance where wind behavior changes from random to damped")]
 
-            public RangeNode<float> TargetArea { get; set; } = new RangeNode<float>(12.0f, 0.0f, 30.0f);
+            public Nodes.RangeNode<float> TargetArea { get; set; } = new Nodes.RangeNode<float>(12.0f, 0.0f, 30.0f);
 
-            [Menu("Wind Mouse Minimum Delay", "Minimum Delay in Milliseconds")]
-            public RangeNode<int> WindMouseMinimumDelay { get; set; } = new(5, 0, 100);
+            [Attributes.Menu("Wind Mouse Minimum Delay", "Minimum Delay in Milliseconds")]
+            public Nodes.RangeNode<int> WindMouseMinimumDelay { get; set; } = new(5, 0, 100);
 
-            [Menu("Wind Mouse Maximum Delay", "Maximum Delay in Milliseconds")]
-            public RangeNode<int> WindMouseMaximumDelay { get; set; } = new(20, 0, 1000);
+            [Attributes.Menu("Wind Mouse Maximum Delay", "Maximum Delay in Milliseconds")]
+            public Nodes.RangeNode<int> WindMouseMaximumDelay { get; set; } = new(20, 0, 1000);
 
-            public ToggleNode Enable { get; set; } = new ToggleNode(true);
-            public ToggleNode Debug { get; set; } = new ToggleNode(false);
+            public Nodes.ToggleNode Enable { get; set; } = new Nodes.ToggleNode(true);
+            public Nodes.ToggleNode Debug { get; set; } = new Nodes.ToggleNode(false);
         }
     }
 }

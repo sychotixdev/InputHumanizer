@@ -1,8 +1,13 @@
-﻿using ExileCore.Shared;
-using ExileCore.Shared.Interfaces;
-using System;
+﻿using System;
 using System.Threading;
 using static InputHumanizer.InputHumanizer;
+
+#if POE1
+using Shared = ExileCore.Shared;
+
+#else
+using Shared = ExileCore2.Shared;
+#endif
 
 namespace InputHumanizer.Input
 {
@@ -16,18 +21,19 @@ namespace InputHumanizer.Input
 
         private InputLockManager() { }
 
-        public async SyncTask<IInputController> GetInputControllerLock(string requestingPlugin, InputHumanizer plugin, InputHumanizerSettings settings, CancellationToken cancellationToken = default)
+        public async Shared.SyncTask<IInputController> GetInputControllerLock(string requestingPlugin, InputHumanizer plugin, InputHumanizerSettings settings, CancellationToken cancellationToken = default)
         {
             await Semaphore.WaitAsync(cancellationToken);
             PluginWithSemaphore = requestingPlugin;
             return new InputController(plugin, settings, this);
         }
 
-        public async SyncTask<IInputController> GetInputControllerLock(string requestingPlugin, InputHumanizer plugin, InputHumanizerSettings settings, TimeSpan waitPeriod)
+        public async Shared.SyncTask<IInputController> GetInputControllerLock(string requestingPlugin, InputHumanizer plugin, InputHumanizerSettings settings, TimeSpan waitPeriod)
         {
             if (await Semaphore.WaitAsync(waitPeriod))
             {
                 PluginWithSemaphore = requestingPlugin;
+
                 return new InputController(plugin, settings, this);
             }
 
