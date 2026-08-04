@@ -283,9 +283,13 @@ namespace InputHumanizer.Input
 
                     Core.Input.SetCursorPos(new Vector2(p.X, p.Y));
 
-                    // Sleep only if we're ahead of schedule
-                    if (stopwatch.Elapsed < totalDelay)
-                        await Task.Delay(totalDelay - stopwatch.Elapsed, cancellationToken);
+                    // Sleep only if we're ahead of schedule. Snapshot the remaining
+                    // time once -- reading stopwatch.Elapsed again after the check
+                    // can go negative if the thread stalls in between, and a negative
+                    // TimeSpan makes Task.Delay throw (or wait forever at exactly -1ms).
+                    var remaining = totalDelay - stopwatch.Elapsed;
+                    if (remaining > TimeSpan.Zero)
+                        await Task.Delay(remaining, cancellationToken);
                 }
             }
 
