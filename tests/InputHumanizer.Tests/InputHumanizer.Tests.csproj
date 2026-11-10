@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Tests the parts of InputHumanizer that don't need ExileAPI: the ClickBot bridge client and
+       foreground path playback. Those files are compiled in directly. Run: dotnet test tests/InputHumanizer.Tests -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\Input\CursorPointWithDelay.cs" Link="Input\CursorPointWithDelay.cs" />
+    <Compile Include="..\..\Input\ClickBotPathSource.cs" Link="Input\ClickBotPathSource.cs" />
+    <Compile Include="..\..\Input\PathPlayback.cs" Link="Input\PathPlayback.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+</Project>
