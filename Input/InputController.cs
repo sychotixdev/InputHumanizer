@@ -261,6 +261,17 @@ namespace InputHumanizer.Input
 
         public async Shared.SyncTask<bool> MoveMouse(Vector2 coordinate, CancellationToken cancellationToken = default)
         {
+            if (Settings.UseClickBot)
+            {
+                Plugin.DebugLog("Mouse Move start (ClickBot)");
+                var moved = await Mouse.ClickBotImpl(Plugin, Plugin.ClickBotPaths, coordinate, Settings.ClickBotLandingBox, cancellationToken);
+                if (moved.HasValue)
+                    return moved.Value;
+
+                // ClickBotPaths isn't loaded or failed (logged once by ClickBotPathSource): use WindMouse
+                return await MoveMouseWindMouseImpl(coordinate, Settings.GravityStrength, Settings.WindStrength, Settings.WindMouseMinimumDelay, Settings.WindMouseMaximumDelay, Settings.StepSize, Settings.TargetArea, cancellationToken);
+            }
+
             if (Settings.UseWindMouse)
             {
                 return await MoveMouseWindMouseImpl(coordinate, Settings.GravityStrength, Settings.WindStrength, Settings.WindMouseMinimumDelay, Settings.WindMouseMaximumDelay, Settings.StepSize, Settings.TargetArea, cancellationToken);

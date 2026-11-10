@@ -127,24 +127,73 @@ namespace InputHumanizer.Input
             }
             else
             {
-                // Standard Foreground logic...
-                var stopwatch = Stopwatch.StartNew();
-                TimeSpan totalDelay = TimeSpan.Zero;
-
-                for(var i =0;i<processedPoints.Count;i++)
-                {
-                    var point = processedPoints[i];
-                    // If HUD slept longer than our point delay, skip to the next in the delay.
-                    // If we are the final point, be sure we send it anyways.
-                    if (stopwatch.Elapsed > totalDelay && i < processedPoints.Count - 1)
-                        continue;
-
-                    Core.Input.SetCursorPos(new Vector2(point.X, point.Y));
-                    var delayMs = (int)point.DelayMs;
-                    await Task.Delay(delayMs, cancellationToken);
-                    totalDelay = totalDelay.Add(TimeSpan.FromMilliseconds(delayMs));
-                }
+                await PlayForeground(plugin, DelaysAfterToBefore(processedPoints), cancellationToken);
             }
+
+            return true;
+        }
+
+        /// <summary>
+        /// The default and WindMouse foreground loops moved to a point and then waited its delay;
+        /// <see cref="PathPlayback"/> waits a point's delay before moving to it. Shift each delay
+        /// onto the following point so those modes keep their original timing.
+        /// </summary>
+        private static CursorPointWithDelay[] DelaysAfterToBefore(IReadOnlyList<CursorPointWithDelay> points)
+        {
+            var shifted = new CursorPointWithDelay[points.Count];
+            for (var i = 0; i < points.Count; i++)
+            {
+                uint before = i == 0 ? 0 : points[i - 1].DelayMs;
+                shifted[i] = new CursorPointWithDelay(points[i].X, points[i].Y, before);
+            }
+            return shifted;
+        }
+
+        /// <summary>
+        /// Foreground playback for every movement mode: runs on its own thread with a
+        /// high-resolution timer (see <see cref="PathPlayback"/>), awaited as one task.
+        /// </summary>
+        private static async Task PlayForeground(InputHumanizer plugin, IReadOnlyList<CursorPointWithDelay> points, CancellationToken cancellationToken)
+        {
+            if (points.Count == 0) return;
+            var report = await PathPlayback.PlayAsync(points, (x, y) => Core.Input.SetCursorPos(new Vector2(x, y)), cancellationToken);
+            plugin.DebugLog($"Playback [FG]: {report.PointsSent} points ({report.PointsSkipped} skipped), " +
+                            $"{report.DurationMs:F1} ms for {report.ScheduledMs:F0} ms scheduled, late mean {report.MeanLateMs:F2} / max {report.MaxLateMs:F2} ms");
+        }
+
+        /// <summary>
+        /// Move along a ClickBot3000 model path. Returns null when ClickBot is unavailable (the
+        /// ClickBotPaths plugin isn't loaded or failed), so the caller can fall back.
+        /// </summary>
+        public static async Shared.SyncTask<bool?> ClickBotImpl(InputHumanizer plugin, ClickBotPathSource source, Vector2 targetPosition,
+            float landingBox, CancellationToken cancellationToken = default)
+        {
+            var backgroundController = plugin.GetBackgroundInputController();
+            Vector2 start, target;
+
+            if (backgroundController != null)
+            {
+                // background input works in CLIENT coordinates
+                var windowOffset = plugin.GameController.Window.GetWindowRectangleTimeCache.TopLeft.ToStandardVector2();
+                var forcedScreen = await backgroundController.GetForcedCursorPositionAsync();
+                start = (forcedScreen ?? Core.Input.ForceMousePosition.ToStandardVector2()) - windowOffset;
+                target = targetPosition - windowOffset;
+            }
+            else
+            {
+                start = Core.Input.ForceMousePosition.ToStandardVector2();
+                target = targetPosition;
+            }
+
+            if (!source.TryGetPath(start, target, landingBox, out var points))
+                return null;
+
+            plugin.DebugLog($"ClickBot: {points.Length} points from ({start.X},{start.Y}) to ({target.X},{target.Y}) (BG={backgroundController != null})");
+
+            if (backgroundController != null)
+                await backgroundController.SetCursorPathAsync(points, 5000);
+            else
+                await PlayForeground(plugin, points, cancellationToken);
 
             return true;
         }
@@ -265,32 +314,8 @@ namespace InputHumanizer.Input
             }
             else
             {
-                // SCREEN coordinates → SetCursorPos
-                var stopwatch = Stopwatch.StartNew();
-                TimeSpan totalDelay = TimeSpan.Zero;
-
-                for (int i = 0; i < points.Count; i++)
-                {
-                    var p = points[i];
-                    bool isLastPoint = (i == points.Count - 1);
-
-                    // Accumulate when this point was supposed to happen
-                    totalDelay += TimeSpan.FromMilliseconds(p.DelayMs);
-
-                    // If we are already past the scheduled time and this is not the final point, skip it
-                    if (stopwatch.Elapsed > totalDelay && !isLastPoint)
-                        continue;
-
-                    Core.Input.SetCursorPos(new Vector2(p.X, p.Y));
-
-                    // Sleep only if we're ahead of schedule. Snapshot the remaining
-                    // time once -- reading stopwatch.Elapsed again after the check
-                    // can go negative if the thread stalls in between, and a negative
-                    // TimeSpan makes Task.Delay throw (or wait forever at exactly -1ms).
-                    var remaining = totalDelay - stopwatch.Elapsed;
-                    if (remaining > TimeSpan.Zero)
-                        await Task.Delay(remaining, cancellationToken);
-                }
+                // SCREEN coordinates; the old loop moved first and then waited, so keep that timing
+                await PlayForeground(plugin, DelaysAfterToBefore(points), cancellationToken);
             }
 
             return true;

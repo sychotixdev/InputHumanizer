@@ -28,6 +28,9 @@ namespace InputHumanizer
     {
         private BackgroundInput BackgroundInput = null;
 
+        /// <summary>Paths from the optional ClickBotPaths plugin (looked up through PluginBridge on each move).</summary>
+        internal ClickBotPathSource ClickBotPaths { get; private set; }
+
         public InputHumanizer()
         {
             BackgroundInput = new BackgroundInput(this);
@@ -35,6 +38,10 @@ namespace InputHumanizer
 
         public override bool Initialise()
         {
+            ClickBotPaths = new ClickBotPathSource(
+                name => GameController.PluginBridge.GetMethod<object>(name),
+                message => LogMessage("InputHumanizer - " + message));
+
             GameController.PluginBridge.SaveMethod("InputHumanizer.TryGetInputController", (string requestingPlugin) =>
             {
                 IInputController controller;
@@ -173,6 +180,12 @@ namespace InputHumanizer
             [Attributes.Menu("Maximum Delay", "Maximum Delay in Milliseconds")]
             public Nodes.RangeNode<int> MaximumDelay { get; set; } = new(150, 0, 1000);
 
+
+            [Attributes.Menu("Use ClickBot", "Move along ClickBot3000 model paths. Needs the separately distributed ClickBotPaths plugin; without it, Wind Mouse is used")]
+            public Nodes.ToggleNode UseClickBot { get; set; } = new Nodes.ToggleNode(false);
+
+            [Attributes.Menu("ClickBot Landing Box", "0 = land exactly on the target. Above 0 = the model picks a human-like landing point inside a square of this many pixels around the target")]
+            public Nodes.RangeNode<int> ClickBotLandingBox { get; set; } = new(0, 0, 100);
 
             [Attributes.Menu("Use Wind Mouse", "Enables Wind Mouse Algorithm")]
 
