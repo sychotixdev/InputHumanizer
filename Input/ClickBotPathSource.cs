@@ -27,24 +27,38 @@ namespace InputHumanizer.Input
             _log = log;
         }
 
+        /// <summary>Outcome of <see cref="Generate"/>: the points, or why there are none.</summary>
+        public readonly struct PathResult
+        {
+            public PathResult(CursorPointWithDelay[] points, string failure)
+            {
+                Points = points ?? Array.Empty<CursorPointWithDelay>();
+                Failure = failure;
+            }
+
+            public CursorPointWithDelay[] Points { get; }
+
+            /// <summary>Null on success; otherwise the message to log.</summary>
+            public string Failure { get; }
+
+            public bool Ok => Failure == null;
+        }
+
         /// <summary>
         /// Generate a path from <paramref name="start"/> to <paramref name="target"/>.
         /// <paramref name="boxSize"/> 0 lands exactly on the target; above 0, ClickBot picks the
         /// landing point inside a square of that size around it. The returned points exclude the
         /// start (the cursor is already there); each carries the wait before it.
+        /// Safe to call from any thread: it runs the model but logs nothing. Pass the result to
+        /// <see cref="Accept"/> on ExileAPI's thread.
         /// </summary>
-        public bool TryGetPath(Vector2 start, Vector2 target, float boxSize, out CursorPointWithDelay[] points)
+        public PathResult Generate(Vector2 start, Vector2 target, float boxSize)
         {
-            points = Array.Empty<CursorPointWithDelay>();
-
             // (startX, startY, targetX, targetY, boxSize, durationMs) -> (x/y pairs, step in ms).
             // Framework types only, so the delegate type is identical in every plugin load context.
             var method = _lookup(GeneratePathV1Name) as Func<double, double, double, double, double, double, (float[] Points, double StepMs)>;
             if (method == null)
-            {
-                LogUnavailable("ClickBot: the ClickBotPaths plugin is not loaded; using WindMouse.");
-                return false;
-            }
+                return new PathResult(null, "ClickBot: the ClickBotPaths plugin is not loaded; using WindMouse.");
 
             (float[] Points, double StepMs) result;
             try
@@ -53,19 +67,41 @@ namespace InputHumanizer.Input
             }
             catch (Exception ex)
             {
-                LogUnavailable($"ClickBot: path generation failed ({ex.Message}); using WindMouse.");
-                return false;
+                return new PathResult(null, $"ClickBot: path generation failed ({ex.Message}); using WindMouse.");
             }
 
             if (result.Points == null || result.Points.Length < 4 || result.StepMs <= 0)
+                return new PathResult(null, "ClickBot: returned an empty path; using WindMouse.");
+
+            return new PathResult(ToCursorPoints(result.Points, result.StepMs), null);
+        }
+
+        /// <summary>
+        /// Report a <see cref="Generate"/> result: logs a failure once until the next success.
+        /// Call on ExileAPI's thread. Returns whether the path can be used.
+        /// </summary>
+        public bool Accept(PathResult result)
+        {
+            if (result.Ok)
             {
-                LogUnavailable("ClickBot: returned an empty path; using WindMouse.");
-                return false;
+                _unavailableLogged = false;
+                return true;
             }
 
-            points = ToCursorPoints(result.Points, result.StepMs);
-            _unavailableLogged = false;
-            return true;
+            if (!_unavailableLogged)
+            {
+                _unavailableLogged = true;
+                _log(result.Failure);
+            }
+            return false;
+        }
+
+        /// <summary><see cref="Generate"/> and <see cref="Accept"/> in one call, on the calling thread.</summary>
+        public bool TryGetPath(Vector2 start, Vector2 target, float boxSize, out CursorPointWithDelay[] points)
+        {
+            var result = Generate(start, target, boxSize);
+            points = result.Points;
+            return Accept(result);
         }
 
         /// <summary>
@@ -89,13 +125,6 @@ namespace InputHumanizer.Input
                     delay));
             }
             return points.ToArray();
-        }
-
-        private void LogUnavailable(string message)
-        {
-            if (_unavailableLogged) return;
-            _unavailableLogged = true;
-            _log(message);
         }
     }
 }

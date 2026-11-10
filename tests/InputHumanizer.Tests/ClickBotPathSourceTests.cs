@@ -100,6 +100,40 @@ public class ClickBotPathSourceTests
     }
 
     [Fact]
+    public async Task Generate_runs_off_thread_without_logging_and_Accept_logs_once()
+    {
+        var logs = new List<string>();
+        var source = Source(null, logs);
+
+        // what Mouse.ClickBotImpl does: generate on a worker thread, accept on ExileAPI's thread
+        var r1 = await Task.Run(() => source.Generate(Vector2.Zero, Vector2.One, 0));
+        var r2 = await Task.Run(() => source.Generate(Vector2.Zero, Vector2.One, 0));
+        Assert.Empty(logs);
+        Assert.False(r1.Ok);
+
+        Assert.False(source.Accept(r1));
+        Assert.False(source.Accept(r2));
+        Assert.Single(logs);
+    }
+
+    [Fact]
+    public async Task Generate_returns_the_points_from_a_worker_thread()
+    {
+        int? callerThread = null;
+        GeneratePathV1 method = (sx, sy, tx, ty, b, dur) =>
+        {
+            callerThread = Environment.CurrentManagedThreadId;
+            return (new float[] { 0, 0, 4, 4, 8, 8 }, 8.0);
+        };
+        var source = Source(method, new());
+
+        var result = await Task.Run(() => source.Generate(Vector2.Zero, new Vector2(8, 8), 0));
+        Assert.True(source.Accept(result));
+        Assert.Equal(2, result.Points.Length);
+        Assert.NotEqual(Environment.CurrentManagedThreadId, callerThread);
+    }
+
+    [Fact]
     public void Too_short_path_counts_as_unavailable()
     {
         var logs = new List<string>();

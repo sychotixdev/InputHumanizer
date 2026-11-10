@@ -185,17 +185,48 @@ namespace InputHumanizer.Input
                 target = targetPosition;
             }
 
-            if (!source.TryGetPath(start, target, landingBox, out var points))
+            // Generate and play in one task on a dedicated thread. ExileAPI's thread is free while
+            // the model runs (and while it loads, on the first move) and while the cursor moves;
+            // awaiting once means one frame of delay at the end instead of one between steps.
+            var move = await Task.Factory.StartNew(
+                () => GenerateAndPlay(source, start, target, landingBox, backgroundController, cancellationToken),
+                cancellationToken, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+
+            // logging stays on ExileAPI's thread
+            if (!source.Accept(move.Path))
                 return null;
 
-            plugin.DebugLog($"ClickBot: {points.Length} points from ({start.X},{start.Y}) to ({target.X},{target.Y}) (BG={backgroundController != null})");
-
-            if (backgroundController != null)
-                await backgroundController.SetCursorPathAsync(points, 5000);
-            else
-                await PlayForeground(plugin, points, cancellationToken);
+            plugin.DebugLog($"ClickBot: {move.Path.Points.Length} points from ({start.X},{start.Y}) to ({target.X},{target.Y}) " +
+                            $"generated in {move.GenerateMs:F1} ms (BG={backgroundController != null})");
+            if (move.Playback is { } report)
+                plugin.DebugLog($"Playback [FG]: {report.PointsSent} points ({report.PointsSkipped} skipped), " +
+                                $"{report.DurationMs:F1} ms for {report.ScheduledMs:F0} ms scheduled, late mean {report.MeanLateMs:F2} / max {report.MaxLateMs:F2} ms");
 
             return true;
+        }
+
+        private sealed record ClickBotMove(ClickBotPathSource.PathResult Path, double GenerateMs, PlaybackReport Playback);
+
+        // runs on the worker thread: no ExileAPI calls except the cursor move itself
+        private static ClickBotMove GenerateAndPlay(ClickBotPathSource source, Vector2 start, Vector2 target, float landingBox,
+            BackgroundInput backgroundController, CancellationToken cancellationToken)
+        {
+            var sw = Stopwatch.StartNew();
+            var path = source.Generate(start, target, landingBox);
+            double generateMs = sw.Elapsed.TotalMilliseconds;
+            if (!path.Ok)
+                return new ClickBotMove(path, generateMs, null);
+
+            cancellationToken.ThrowIfCancellationRequested();
+            if (backgroundController != null)
+            {
+                // the pipe client serialises commands with its own lock
+                backgroundController.SetCursorPathAsync(path.Points, 5000).GetAwaiter().GetResult();
+                return new ClickBotMove(path, generateMs, null);
+            }
+
+            var report = PathPlayback.Play(path.Points, (x, y) => Core.Input.SetCursorPos(new Vector2(x, y)), cancellationToken);
+            return new ClickBotMove(path, generateMs, report);
         }
 
         // Credits: https://ben.land/post/2021/04/25/windmouse-human-mouse-movement/#the-code
