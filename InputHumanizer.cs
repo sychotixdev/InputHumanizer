@@ -36,8 +36,20 @@ namespace InputHumanizer
             BackgroundInput = new BackgroundInput(this);
         }
 
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern void DisableProcessWindowsGhosting();
+
         public override bool Initialise()
         {
+            // Windows sometimes flags ExileAPI's overlay as "not responding" (IsHungAppWindow) while
+            // it is still rendering: the overlay polls its queue with PeekMessage(NULL hwnd), and in
+            // the HUD those empty peeks stop counting as a response after a while (a peek filtered to
+            // the overlay's own hwnd does count; why is not known). dwm then covers the overlay with
+            // a ghost window that is NOT click-through, which shows a busy cursor and takes the
+            // clicks meant for the game. Ghosting is per process and can be turned off after the
+            // window exists; the false "hung" flag on a click-through window is then harmless.
+            DisableProcessWindowsGhosting();
+
             ClickBotPaths = new ClickBotPathSource(
                 name => GameController.PluginBridge.GetMethod<object>(name),
                 message => LogMessage("InputHumanizer - " + message));

@@ -43,6 +43,32 @@ namespace InputHumanizer.Input
                 TaskCreationOptions.LongRunning, TaskScheduler.Default);
         }
 
+        /// <summary>When each point is due (ms from the start): the sum of its own and all earlier delays.</summary>
+        public static double[] DueTimes(IReadOnlyList<CursorPointWithDelay> points)
+        {
+            var due = new double[points.Count];
+            double t = 0;
+            for (int i = 0; i < points.Count; i++)
+            {
+                t += points[i].DelayMs;
+                due[i] = t;
+            }
+            return due;
+        }
+
+        /// <summary>
+        /// Index of the newest point at or after <paramref name="next"/> that is due by
+        /// <paramref name="nowMs"/>, or <c>next - 1</c> when none is due yet. Frame-paced playback
+        /// sends only this point and skips the ones before it.
+        /// </summary>
+        public static int LatestDue(double[] due, int next, double nowMs)
+        {
+            int latest = next - 1;
+            while (latest + 1 < due.Length && due[latest + 1] <= nowMs)
+                latest++;
+            return latest;
+        }
+
         /// <summary>Play on the calling thread (blocks for the path's duration).</summary>
         public static PlaybackReport Play(IReadOnlyList<CursorPointWithDelay> points, Action<int, int> setCursor,
             CancellationToken cancellationToken = default)

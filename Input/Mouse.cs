@@ -150,15 +150,53 @@ namespace InputHumanizer.Input
         }
 
         /// <summary>
-        /// Foreground playback for every movement mode: runs on its own thread with a
-        /// high-resolution timer (see <see cref="PathPlayback"/>), awaited as one task.
+        /// Foreground playback for every movement mode, on ExileAPI's thread and paced by its
+        /// frames: each frame the cursor jumps to the newest point that is due and the points it
+        /// passed over are skipped, so Windows gets at most one cursor move per frame whatever the
+        /// path's step. The last point is always sent. Each point's delay is the wait before it.
         /// </summary>
-        private static async Task PlayForeground(InputHumanizer plugin, IReadOnlyList<CursorPointWithDelay> points, CancellationToken cancellationToken)
+        private static async Shared.SyncTask<bool> PlayForeground(InputHumanizer plugin, IReadOnlyList<CursorPointWithDelay> points, CancellationToken cancellationToken)
         {
-            if (points.Count == 0) return;
-            var report = await PathPlayback.PlayAsync(points, (x, y) => Core.Input.SetCursorPos(new Vector2(x, y)), cancellationToken);
-            plugin.DebugLog($"Playback [FG]: {report.PointsSent} points ({report.PointsSkipped} skipped), " +
-                            $"{report.DurationMs:F1} ms for {report.ScheduledMs:F0} ms scheduled, late mean {report.MeanLateMs:F2} / max {report.MaxLateMs:F2} ms");
+            if (points.Count == 0) return true;
+
+            var due = PathPlayback.DueTimes(points);
+            var sw = Stopwatch.StartNew();
+            int next = 0, sent = 0, skipped = 0, frames = 0;
+            double maxLate = 0, sumLate = 0, maxCall = 0, sumCall = 0;
+
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                double now = sw.Elapsed.TotalMilliseconds;
+                int latest = PathPlayback.LatestDue(due, next, now);
+                if (latest >= next)
+                {
+                    skipped += latest - next;
+                    next = latest + 1;
+
+                    double late = now - due[latest];
+                    maxLate = Math.Max(maxLate, late);
+                    sumLate += late;
+
+                    double before = sw.Elapsed.TotalMilliseconds;
+                    Core.Input.SetCursorPos(new Vector2(points[latest].X, points[latest].Y));
+                    double call = sw.Elapsed.TotalMilliseconds - before;
+                    maxCall = Math.Max(maxCall, call);
+                    sumCall += call;
+                    sent++;
+                }
+
+                if (next >= points.Count)
+                    break;
+
+                frames++;
+                await Shared.TaskUtils.NextFrame();
+            }
+
+            plugin.DebugLog($"Playback [FG, per frame]: {sent} moves for {points.Count} points ({skipped} skipped) over {frames} frames, " +
+                            $"{sw.Elapsed.TotalMilliseconds:F1} ms for {due[^1]:F0} ms scheduled, late mean {(sent > 0 ? sumLate / sent : 0):F2} / max {maxLate:F2} ms, " +
+                            $"setCursor mean {(sent > 0 ? sumCall / sent : 0):F2} / max {maxCall:F2} ms");
+            return true;
         }
 
         /// <summary>
@@ -185,11 +223,10 @@ namespace InputHumanizer.Input
                 target = targetPosition;
             }
 
-            // Generate and play in one task on a dedicated thread. ExileAPI's thread is free while
-            // the model runs (and while it loads, on the first move) and while the cursor moves;
-            // awaiting once means one frame of delay at the end instead of one between steps.
+            // Generate (and, for background input, send over the pipe) on a dedicated thread, so
+            // ExileAPI's thread is free while the model runs and while it loads on the first move.
             var move = await Task.Factory.StartNew(
-                () => GenerateAndPlay(source, start, target, landingBox, backgroundController, cancellationToken),
+                () => GenerateOnWorker(source, start, target, landingBox, backgroundController, cancellationToken),
                 cancellationToken, TaskCreationOptions.LongRunning, TaskScheduler.Default);
 
             // logging stays on ExileAPI's thread
@@ -198,35 +235,34 @@ namespace InputHumanizer.Input
 
             plugin.DebugLog($"ClickBot: {move.Path.Points.Length} points from ({start.X},{start.Y}) to ({target.X},{target.Y}) " +
                             $"generated in {move.GenerateMs:F1} ms (BG={backgroundController != null})");
-            if (move.Playback is { } report)
-                plugin.DebugLog($"Playback [FG]: {report.PointsSent} points ({report.PointsSkipped} skipped), " +
-                                $"{report.DurationMs:F1} ms for {report.ScheduledMs:F0} ms scheduled, late mean {report.MeanLateMs:F2} / max {report.MaxLateMs:F2} ms");
+
+            // foreground: move the cursor on ExileAPI's thread, at most once per frame
+            if (backgroundController == null)
+                await PlayForeground(plugin, move.Path.Points, cancellationToken);
 
             return true;
         }
 
-        private sealed record ClickBotMove(ClickBotPathSource.PathResult Path, double GenerateMs, PlaybackReport Playback);
+        private sealed record ClickBotMove(ClickBotPathSource.PathResult Path, double GenerateMs);
 
-        // runs on the worker thread: no ExileAPI calls except the cursor move itself
-        private static ClickBotMove GenerateAndPlay(ClickBotPathSource source, Vector2 start, Vector2 target, float landingBox,
+        // runs on the worker thread: no ExileAPI calls
+        private static ClickBotMove GenerateOnWorker(ClickBotPathSource source, Vector2 start, Vector2 target, float landingBox,
             BackgroundInput backgroundController, CancellationToken cancellationToken)
         {
             var sw = Stopwatch.StartNew();
             var path = source.Generate(start, target, landingBox);
             double generateMs = sw.Elapsed.TotalMilliseconds;
             if (!path.Ok)
-                return new ClickBotMove(path, generateMs, null);
+                return new ClickBotMove(path, generateMs);
 
             cancellationToken.ThrowIfCancellationRequested();
             if (backgroundController != null)
             {
                 // the pipe client serialises commands with its own lock
                 backgroundController.SetCursorPathAsync(path.Points, 5000).GetAwaiter().GetResult();
-                return new ClickBotMove(path, generateMs, null);
             }
 
-            var report = PathPlayback.Play(path.Points, (x, y) => Core.Input.SetCursorPos(new Vector2(x, y)), cancellationToken);
-            return new ClickBotMove(path, generateMs, report);
+            return new ClickBotMove(path, generateMs);
         }
 
         // Credits: https://ben.land/post/2021/04/25/windmouse-human-mouse-movement/#the-code
